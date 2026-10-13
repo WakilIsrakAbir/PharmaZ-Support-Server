@@ -1,0 +1,23 @@
+$kind: http-request
+method: PATCH
+url: '{{base_url}}/auth/me'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Renamed Agent",
+      "email": "{{email}}",
+      "phone": "12345"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("points at the phone field", () => {
+        pm.expect(pm.response.json().error.fields).to.have.property("phone");
+      });

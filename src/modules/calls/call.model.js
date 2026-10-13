@@ -12,7 +12,7 @@ const callSchema = new mongoose.Schema(
     priority: { type: String, enum: PRIORITIES, default: "normal" },
 
     direction: { type: String, enum: DIRECTIONS, default: "inbound" },
-    status: { type: String, enum: CALL_STATUSES, default: "resolved", index: true },
+    status: { type: String, enum: CALL_STATUSES, default: "pending", index: true },
     durationSeconds: { type: Number, min: 0 },
     calledAt: { type: Date, default: Date.now },
 

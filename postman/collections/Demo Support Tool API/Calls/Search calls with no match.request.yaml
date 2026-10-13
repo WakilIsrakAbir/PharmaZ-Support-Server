@@ -1,0 +1,19 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/calls?search=NO-SUCH-INVOICE-(1)'
+order: 5200
+queryParams:
+  - key: search
+    value: 'NO-SUCH-INVOICE-(1)'
+    description: Brackets would break an unescaped regular expression
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("finds nothing", () => {
+        const { data, meta } = pm.response.json();
+        pm.expect(data).to.eql([]);
+        pm.expect(meta.total).to.eql(0);
+        pm.expect(meta.totalPages).to.eql(0);
+      });

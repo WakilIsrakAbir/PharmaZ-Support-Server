@@ -33,10 +33,14 @@ scripts:
         pm.expect(call).to.not.have.property("__v");
       });
       pm.test("mobile is stored as 01XXXXXXXXX", () => pm.expect(call.mobile).to.eql("01712345678"));
-      pm.test("records which agent logged it", () => pm.expect(call.createdBy).to.be.a("string").and.not.empty);
+      pm.test("records which agent logged it, by name", () => {
+        pm.expect(call.createdBy.name).to.eql("Test Agent");
+        pm.expect(call.createdBy).to.have.property("id");
+        pm.expect(call.createdBy).to.not.have.any.keys("email", "passwordHash");
+      });
       pm.test("missing fields get their defaults", () => {
         pm.expect(call.direction).to.eql("inbound");
-        pm.expect(call.status).to.eql("resolved");
+        pm.expect(call.status).to.eql("pending");
         pm.expect(call.calledAt).to.be.a("string");
       });
       pm.test("empty strings are not stored", () => pm.expect(call).to.not.have.property("transactionNo"));

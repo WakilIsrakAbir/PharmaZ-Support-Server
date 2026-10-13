@@ -16,6 +16,7 @@ servers:
 tags:
   - name: Health
   - name: Auth
+  - name: Account
   - name: Calls
 
 # Logged-in users carry an httpOnly `token` cookie, set by register/login.
@@ -104,7 +105,7 @@ paths:
 
   /auth/me:
     get:
-      tags: [Auth]
+      tags: [Account]
       summary: Get the logged-in user
       operationId: getCurrentUser
       responses:
@@ -114,6 +115,123 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/UserResponse" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+    patch:
+      tags: [Account]
+      summary: Update the logged-in user's details
+      operationId: updateCurrentUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                email: { type: string, format: email }
+                phone: { type: string, description: "Bangladeshi mobile number, or empty to clear it" }
+            example: { name: Wakil Israk Abir, email: abir@example.com, phone: "01712-345678" }
+      responses:
+        "200":
+          description: The updated user.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: Another account already uses the email.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/me/password:
+    patch:
+      tags: [Account]
+      summary: Change the password
+      description: Logs out every other session and sets a fresh `token` cookie for this one.
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              additionalProperties: false
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "200":
+          description: Password changed.
+          headers:
+            Set-Cookie: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Email a password reset link
+      description: |
+        Always answers 204, whether or not the email has an account, so the endpoint
+        can't be used to find registered emails. The link expires in 30 minutes.
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "204": { description: "If the account exists, the email is on its way." }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password from an emailed link
+      description: The link works once. Other sessions are logged out and this one is logged in.
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              additionalProperties: false
+              properties:
+                token: { type: string, pattern: "^[a-f0-9]{64}$" }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "200":
+          description: Password changed and logged in. The response sets the `token` cookie.
+          headers:
+            Set-Cookie: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: The token is malformed, expired or already used.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
 
   /health:
     get:
@@ -152,7 +270,7 @@ paths:
               issue: Stock quantity doesn't match shelf
               priority: high
               direction: inbound
-              status: follow-up
+              status: pending
               durationSeconds: 225
               outcome: Re-synced stock, waiting for customer to confirm
       responses:
@@ -197,6 +315,19 @@ paths:
         - name: direction
           in: query
           schema: { $ref: "#/components/schemas/Direction" }
+        - name: search
+          in: query
+          description: Part of a mobile number or transaction no. (case-insensitive).
+          schema: { type: string, maxLength: 50 }
+          example: "1712"
+        - name: from
+          in: query
+          description: Only calls at or after this moment.
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          description: Only calls before this moment.
+          schema: { type: string, format: date-time }
       responses:
         "200":
           description: A page of calls.
@@ -236,6 +367,50 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+    patch:
+      tags: [Calls]
+      summary: Update a call
+      description: |
+        Changes how a call ended up and its notes. Only the agent who logged the call,
+        or an admin, can do this. An empty string clears a note.
+      operationId: updateCall
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                status: { $ref: "#/components/schemas/CallStatus" }
+                priority: { $ref: "#/components/schemas/Priority" }
+                outcome: { type: string, maxLength: 2000 }
+                comments: { type: string, maxLength: 5000 }
+            example: { status: under-review, outcome: Sent to the tech team }
+      responses:
+        "200":
+          description: The updated call.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Call" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The call was logged by someone else.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     cookieAuth:
@@ -251,7 +426,10 @@ components:
         id: { type: string }
         name: { type: string }
         email: { type: string, format: email }
+        phone: { type: string, description: "Empty when not set" }
         role: { type: string, enum: [agent, admin] }
+        lastLoginAt: { type: string, format: date-time }
+        passwordChangedAt: { type: string, format: date-time, description: "Missing until the password is first changed" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -273,7 +451,7 @@ components:
       enum: [inbound, outbound]
     CallStatus:
       type: string
-      enum: [resolved, follow-up, escalated, callback, unreachable]
+      enum: [completed, pending, resolved, under-review]
 
     CallInput:
       type: object
@@ -290,7 +468,7 @@ components:
         issue: { type: string, maxLength: 200 }
         priority: { $ref: "#/components/schemas/Priority", default: normal }
         direction: { $ref: "#/components/schemas/Direction", default: inbound }
-        status: { $ref: "#/components/schemas/CallStatus", default: resolved }
+        status: { $ref: "#/components/schemas/CallStatus", default: pending }
         durationSeconds: { type: integer, minimum: 0, maximum: 86400 }
         calledAt:
           type: string
@@ -316,7 +494,13 @@ components:
         calledAt: { type: string, format: date-time }
         outcome: { type: string }
         comments: { type: string }
-        createdBy: { type: string, description: Id of the user who logged the call. }
+        createdBy:
+          type: object
+          description: The agent who logged the call.
+          required: [id, name]
+          properties:
+            id: { type: string }
+            name: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 

@@ -2,17 +2,28 @@
 
 const nodeEnv = process.env.NODE_ENV ?? "development";
 
+const clientUrls = (process.env.CLIENT_URL ?? "http://localhost:3000")
+  .split(",")
+  .map((url) => url.trim())
+  .filter(Boolean);
+
 export const env = {
   nodeEnv,
   isProduction: nodeEnv === "production",
   port: Number(process.env.PORT ?? 5000),
   mongodbUri: process.env.MONGODB_URI,
-  clientUrls: (process.env.CLIENT_URL ?? "http://localhost:3000")
-    .split(",")
-    .map((url) => url.trim())
-    .filter(Boolean),
+  clientUrls,
+  // Links in emails point here
+  appUrl: clientUrls[0],
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
+  smtp: {
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT ?? 587),
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+  mailFrom: process.env.MAIL_FROM ?? "PharmaZ247 Support <no-reply@localhost>",
 };
 
 for (const name of ["MONGODB_URI", "JWT_SECRET"]) {

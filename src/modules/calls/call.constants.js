@@ -18,4 +18,4 @@ export const PRIORITIES = ["low", "normal", "high", "urgent"];
 
 export const DIRECTIONS = ["inbound", "outbound"];
 
-export const CALL_STATUSES = ["resolved", "follow-up", "escalated", "callback", "unreachable"];
+export const CALL_STATUSES = ["completed", "pending", "resolved", "under-review"];

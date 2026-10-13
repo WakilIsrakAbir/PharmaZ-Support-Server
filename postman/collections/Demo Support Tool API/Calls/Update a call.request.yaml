@@ -1,0 +1,30 @@
+$kind: http-request
+method: PATCH
+url: '{{base_url}}/calls/{{call_id}}'
+order: 7500
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "status": "under-review",
+      "outcome": "  Sent to the tech team  ",
+      "comments": ""
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const call = pm.response.json().data;
+      pm.test("saves the new status and outcome", () => {
+        pm.expect(call.status).to.eql("under-review");
+        pm.expect(call.outcome).to.eql("Sent to the tech team");
+      });
+      pm.test("leaves the rest alone", () => {
+        pm.expect(call.mobile).to.eql("01712345678");
+        pm.expect(call.priority).to.eql("high");
+      });
+      pm.test("still names the agent", () => pm.expect(call.createdBy.name).to.eql("Test Agent"));

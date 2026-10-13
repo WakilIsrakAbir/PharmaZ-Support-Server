@@ -1,0 +1,4 @@
+$kind: collection
+name: Password reset
+description: The emailed link can't be read here, so these cover everything up to it.
+order: 4500

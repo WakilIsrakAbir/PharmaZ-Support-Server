@@ -1,0 +1,32 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/calls?from={{range_from}}&to={{range_to}}'
+order: 5300
+queryParams:
+  - key: from
+    value: '{{range_from}}'
+  - key: to
+    value: '{{range_to}}'
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // The last hour up to a minute from now
+      pm.variables.set("range_from", new Date(Date.now() - 3600000).toISOString());
+      pm.variables.set("range_to", new Date(Date.now() + 60000).toISOString());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("includes the call that was just logged", () => {
+        const ids = pm.response.json().data.map((call) => call.id);
+        pm.expect(ids).to.include(pm.collectionVariables.get("call_id"));
+      });
+      pm.test("every call is inside the range", () => {
+        const from = new Date(pm.variables.get("range_from"));
+        const to = new Date(pm.variables.get("range_to"));
+        pm.response.json().data.forEach((call) => {
+          const at = new Date(call.calledAt);
+          pm.expect(at >= from && at < to).to.be.true;
+        });
+      });

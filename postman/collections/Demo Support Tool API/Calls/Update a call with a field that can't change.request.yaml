@@ -1,0 +1,21 @@
+$kind: http-request
+method: PATCH
+url: '{{base_url}}/calls/{{call_id}}'
+order: 7600
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "mobile": "01812345678"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("names the field", () => {
+        pm.expect(pm.response.json().error.fields.mobile).to.eql("Unknown field.");
+      });
