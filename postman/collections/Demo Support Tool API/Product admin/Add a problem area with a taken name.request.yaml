@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/product/areas'
+order: 1100
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "{{taken_name}}"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set("taken_name", pm.collectionVariables.get("test_area_name").toUpperCase());
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 409", () => pm.response.to.have.status(409));
+      pm.test("says the name is taken, ignoring case", () => {
+        pm.expect(pm.response.json().error.fields.name).to.eql("There's already a problem area with this name.");
+      });

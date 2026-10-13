@@ -16,3 +16,14 @@ export async function requireAuth(req, _res, next) {
   req.user = user;
   next();
 }
+
+/**
+ * Use after requireAuth. An account still on its temporary password can only set a
+ * new one (PATCH /auth/me/password); everything else waits until it has.
+ */
+export function requirePasswordSet(req, _res, next) {
+  if (req.user.mustChangePassword) {
+    throw new HttpError(403, "Set a new password before you continue.", { password: "change" });
+  }
+  next();
+}

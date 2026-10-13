@@ -1,0 +1,15 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/admin/products'
+order: 1350
+headers:
+  - key: X-Send-As
+    value: 'admin'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("no product was left behind by the refused requests", () => {
+        pm.expect(pm.response.json().data.map((product) => product.name)).to.not.include(`Never Made ${pm.collectionVariables.get("run")}`);
+      });

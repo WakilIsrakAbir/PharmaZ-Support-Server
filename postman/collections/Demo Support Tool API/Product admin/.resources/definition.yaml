@@ -1,0 +1,26 @@
+$kind: collection
+name: Product admin
+description: |-
+  The product admin sets up problem areas, statuses, priorities and extra form fields.
+  Every request here is sent as the admin (admin_email / admin_password).
+order: 2500
+scripts:
+  - type: http:beforeRequest
+    language: text/javascript
+    code: |-
+      // Send these as the product admin. The login is reused for the whole folder.
+      let adminToken = pm.collectionVariables.get("admin_token");
+      if (!adminToken) {
+        const res = await pm.sendRequest({
+          url: pm.environment.get("base_url") + "/auth/login",
+          method: "POST",
+          header: { "Content-Type": "application/json" },
+          body: {
+            mode: "raw",
+            raw: JSON.stringify({ email: pm.environment.get("admin_email"), password: pm.environment.get("admin_password") }),
+          },
+        });
+        adminToken = res.headers.get("Set-Cookie").match(/token=([^;]+)/)[1];
+        pm.collectionVariables.set("admin_token", adminToken);
+      }
+      pm.request.headers.upsert({ key: "Cookie", value: `token=${adminToken}` });

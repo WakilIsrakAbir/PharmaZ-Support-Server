@@ -1,0 +1,46 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/product/areas'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "{{test_area_name}}",
+      "icon": "bug",
+      "issues": [
+        {
+          "label": "Screen freezes"
+        },
+        {
+          "label": "Wrong totals"
+        }
+      ]
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set("test_area_name", `Test area ${Date.now()}`);
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+
+      const setup = pm.response.json().data;
+      pm.collectionVariables.set("setup_json", JSON.stringify(setup));
+      const area = setup.areas.find((a) => a.name === pm.collectionVariables.get("test_area_name"));
+      pm.test("returns the whole setup, with the new area last", () => {
+        pm.expect(area).to.be.an("object");
+        pm.expect(setup.areas.at(-1).id).to.eql(area.id);
+      });
+      pm.test("keeps the icon and the issues, switched on", () => {
+        pm.expect(area.icon).to.eql("bug");
+        pm.expect(area.isActive).to.eql(true);
+        pm.expect(area.issues.map((issue) => [issue.label, issue.isActive])).to.eql([["Screen freezes", true], ["Wrong totals", true]]);
+      });
+      pm.collectionVariables.set("test_area_id", area.id);
+      pm.collectionVariables.set("issue_1_id", area.issues[0].id);

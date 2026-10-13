@@ -1,0 +1,24 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/users'
+order: 1600
+description: "Product admins only add agents; the role isn't theirs to choose."
+headers:
+  - key: Content-Type
+    value: 'application/json'
+  - key: X-Send-As
+    value: 'admin'
+body:
+  type: json
+  content: |-
+    {
+      "name": "Role Picker",
+      "email": "role.{{$timestamp}}@example.com",
+      "role": "admin"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("refuses the role field", () => pm.expect(pm.response.json().error.fields).to.eql({ role: "Unknown field." }));

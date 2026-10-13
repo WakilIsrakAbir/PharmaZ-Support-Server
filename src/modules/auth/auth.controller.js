@@ -1,29 +1,12 @@
 import { User } from "./user.model.js";
 import { clearAuthCookie, setAuthCookie } from "./auth-token.js";
 import { passwordResetEmail } from "./auth.emails.js";
-import { createResetToken, hashPassword, hashResetToken, verifyPassword } from "./password.js";
+import { createResetToken, hashResetToken, verifyPassword } from "./password.js";
 import { HttpError } from "../../utils/http-error.js";
 import { sendMail } from "../../utils/mailer.js";
 
-const EMAIL_TAKEN = "An account with this email already exists.";
-
-export async function register(req, res) {
-  const { name, email, password } = req.validated.body;
-
-  if (await User.exists({ email })) {
-    throw new HttpError(409, EMAIL_TAKEN, { email: EMAIL_TAKEN });
-  }
-
-  const user = await User.create({
-    name,
-    email,
-    passwordHash: await hashPassword(password),
-    lastLoginAt: new Date(),
-  });
-
-  setAuthCookie(res, user);
-  res.status(201).json({ data: user });
-}
+// There is no public sign-up: the super admin creates product admins, and product
+// admins create agents (see modules/users/member-accounts.js).
 
 export async function login(req, res) {
   const { email, password } = req.validated.body;

@@ -1,0 +1,27 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/calls'
+order: 3100
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "mobile": "01812345678",
+      "customFields": {
+        "branch": "Dhaka",
+        "invoice-amount": "1250.50",
+        "visit-date": "2026-10-01"
+      }
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+      pm.test("saves the answers, numbers as numbers", () => {
+        pm.expect(pm.response.json().data.customFields).to.eql({ branch: "Dhaka", "invoice-amount": 1250.5, "visit-date": "2026-10-01" });
+      });
+      pm.collectionVariables.set("fields_call_id", pm.response.json().data.id);

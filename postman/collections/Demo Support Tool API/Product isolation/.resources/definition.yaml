@@ -1,0 +1,6 @@
+$kind: collection
+name: Product isolation
+description: |-
+  Product B's admin (made in "Super admin") works only inside product B: PharmaZ247's
+  calls, setup and people are invisible to them, and the super admin's console is closed.
+order: 2900

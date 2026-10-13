@@ -1,0 +1,20 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/admin/open-product'
+order: 2200
+headers:
+  - key: Content-Type
+    value: 'application/json'
+  - key: X-Send-As
+    value: 'admin_b'
+body:
+  type: json
+  content: |-
+    {
+      "productId": "{{pharmaz_id}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 403", () => pm.response.to.have.status(403));

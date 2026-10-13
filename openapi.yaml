@@ -3,8 +3,23 @@ info:
   title: Demo Support Tool API
   version: 1.0.0
   description: |
-    Backend for the PharmaZ247 support tool. Agents log customer calls here,
-    and the Logs, QA and Performance pages read them back.
+    Backend for the support tool. Agents log customer calls here, and the Logs and
+    Dashboard pages read them back.
+
+    The tool runs support for several products. Every account belongs to one product,
+    and everything under /dashboard, /product, /calls and /users works inside that
+    product only. An account outside any active product gets 403 with
+    `fields: { product: "none" }`.
+
+    Roles: the **super admin** sits above every product (the /admin endpoints), creates
+    products and appoints their admins, and works inside whichever product they opened.
+    A **product admin** sets the product up and adds support agents. An **agent** logs
+    calls.
+
+    There is no sign-up. Accounts are created by an admin with a temporary password,
+    returned once as `temporaryPassword`. Until the person replaces it with
+    PATCH /auth/me/password, every other endpoint answers 403 with
+    `fields: { password: "change" }`.
 
     Every error response uses the same shape:
     `{ "error": { "message": "...", "fields": { "<field>": "<why>" } } }`
@@ -17,48 +32,24 @@ tags:
   - name: Health
   - name: Auth
   - name: Account
+  - name: Product setup
+    description: |
+      The product's own problem areas, statuses, priorities and extra form fields.
+      Every member can read them; only the product's admins can change them.
+      Nothing is ever deleted: an option left out of a list is switched off
+      (`isActive: false`), so older calls still show it.
+  - name: Dashboard
   - name: Calls
+  - name: Users
+    description: The people in the product. Product admins add and remove agents; only the super admin changes roles.
+  - name: Super admin
+    description: The platform owner's console, across all products. Super admin only.
 
-# Logged-in users carry an httpOnly `token` cookie, set by register/login.
+# Logged-in users carry an httpOnly `token` cookie, set by login.
 security:
   - cookieAuth: []
 
 paths:
-  /auth/register:
-    post:
-      tags: [Auth]
-      summary: Create an account and log in
-      operationId: register
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, email, password]
-              additionalProperties: false
-              properties:
-                name: { type: string, minLength: 2, maxLength: 80 }
-                email: { type: string, format: email }
-                password: { type: string, minLength: 8, maxLength: 128 }
-            example: { name: Wakil Israk Abir, email: abir@example.com, password: a-long-password }
-      responses:
-        "201":
-          description: Account created. The response sets the `token` cookie.
-          headers:
-            Set-Cookie: { schema: { type: string }, description: "token=...; HttpOnly; SameSite=Lax" }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/UserResponse" }
-        "400": { $ref: "#/components/responses/ValidationError" }
-        "409":
-          description: The email is already registered.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        "429": { $ref: "#/components/responses/TooManyRequests" }
-
   /auth/login:
     post:
       tags: [Auth]
@@ -151,7 +142,10 @@ paths:
     patch:
       tags: [Account]
       summary: Change the password
-      description: Logs out every other session and sets a fresh `token` cookie for this one.
+      description: |
+        Logs out every other session and sets a fresh `token` cookie for this one. This
+        is also how a new account replaces its temporary password (the temporary one is
+        `currentPassword`); it clears `mustChangePassword`.
       operationId: changePassword
       requestBody:
         required: true
@@ -252,11 +246,245 @@ paths:
                   database: { type: string, enum: [connected, disconnected] }
               example: { status: ok, database: connected }
 
+  /product/setup:
+    get:
+      tags: [Product setup]
+      summary: Get the product setup
+      description: Everything the Log a Call and Logs pages are built from. Every member can read it.
+      operationId: getProductSetup
+      responses:
+        "200": { $ref: "#/components/responses/SetupResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NoProduct" }
+
+  /product:
+    patch:
+      tags: [Product setup]
+      summary: Update the product details
+      operationId: updateProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60 }
+                description: { type: string, maxLength: 200 }
+                accentColor: { $ref: "#/components/schemas/AccentColor" }
+            example: { description: Pharmacy management system }
+      responses:
+        "200": { $ref: "#/components/responses/SetupResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+
+  /product/statuses:
+    put:
+      tags: [Product setup]
+      summary: Replace the statuses
+      description: |
+        Send the whole list in the order it should show. Items with a `key` update the
+        saved one; items without a key are new and get a key made from their label
+        ("Under Review" -> "under-review"), which never changes afterwards. Saved items
+        left out are switched off. At least one must stay on, and exactly one is the
+        default for new calls (the first active one if none is marked).
+      operationId: replaceStatuses
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [statuses]
+              additionalProperties: false
+              properties:
+                statuses:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { $ref: "#/components/schemas/OptionInput" }
+            example:
+              statuses:
+                - { key: pending, label: Pending, color: amber, isDefault: true }
+                - { label: Escalated, color: orange }
+      responses:
+        "200": { $ref: "#/components/responses/SetupResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+
+  /product/priorities:
+    put:
+      tags: [Product setup]
+      summary: Replace the priorities
+      description: |
+        Send the whole list in the order it should show. Items with a `key` update the
+        saved one; items without a key are new and get a key made from their label
+        ("Under Review" -> "under-review"), which never changes afterwards. Saved items
+        left out are switched off. At least one must stay on, and exactly one is the
+        default for new calls (the first active one if none is marked).
+      operationId: replacePriorities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priorities]
+              additionalProperties: false
+              properties:
+                priorities:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { $ref: "#/components/schemas/OptionInput" }
+            example:
+              priorities:
+                - { key: normal, label: Normal, color: sky, isDefault: true }
+                - { label: Critical, color: orange }
+      responses:
+        "200": { $ref: "#/components/responses/SetupResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+
+  /product/custom-fields:
+    put:
+      tags: [Product setup]
+      summary: Replace the extra form fields
+      description: |
+        Extra questions on the Log a Call form. Keys work like statuses: send a field's
+        `key` to update it, leave it out to add a new one; fields left out are switched
+        off. A field's type can't change once it exists (400); add a new field instead.
+      operationId: replaceCustomFields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customFields]
+              additionalProperties: false
+              properties:
+                customFields:
+                  type: array
+                  maxItems: 30
+                  items: { $ref: "#/components/schemas/CustomFieldInput" }
+            example:
+              customFields:
+                - { label: Branch, type: select, options: [Dhaka, Chittagong], required: true }
+                - { label: Invoice amount, type: number }
+      responses:
+        "200": { $ref: "#/components/responses/SetupResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+
+  /product/areas:
+    post:
+      tags: [Product setup]
+      summary: Add a problem area
+      description: The new area goes last. Names are unique within the product, ignoring case.
+      operationId: createProblemArea
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60 }
+                icon: { $ref: "#/components/schemas/AreaIcon" }
+                issues:
+                  type: array
+                  maxItems: 60
+                  items: { $ref: "#/components/schemas/IssueInput" }
+            example:
+              name: Inventory & Stock
+              icon: package
+              issues: [{ label: Stock quantity doesn't match shelf }]
+      responses:
+        "201": { $ref: "#/components/responses/SetupResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+        "409": { $ref: "#/components/responses/AreaNameTaken" }
+
+  /product/areas/order:
+    put:
+      tags: [Product setup]
+      summary: Reorder the problem areas
+      description: Send every area's id once, in the new order.
+      operationId: reorderProblemAreas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              additionalProperties: false
+              properties:
+                ids: { type: array, minItems: 1, items: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/SetupResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+
+  /product/areas/{id}:
+    patch:
+      tags: [Product setup]
+      summary: Edit a problem area
+      description: |
+        Rename it, change its icon, switch it on or off, or edit its issues. Issues are
+        sent as a full list: ones with an `id` are updated, ones without are added, and
+        saved ones left out are switched off.
+      operationId: updateProblemArea
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60 }
+                icon: { $ref: "#/components/schemas/AreaIcon" }
+                isActive: { type: boolean }
+                issues:
+                  type: array
+                  maxItems: 60
+                  items: { $ref: "#/components/schemas/IssueInput" }
+            example:
+              name: Stock & Batches
+              issues: [{ id: 6708f1c2a9b3e4d5f6a7b8d1, label: Stock count is wrong }, { label: Batch missing }]
+      responses:
+        "200": { $ref: "#/components/responses/SetupResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/AreaNameTaken" }
+
   /calls:
     post:
       tags: [Calls]
       summary: Log a call
-      description: Only `mobile` is required. Everything else has a sensible default or is optional.
+      description: |
+        Only `mobile` is required, plus any extra field the product marks as required.
+        The area, issue, status, priority and extra fields must come from the product
+        setup and be switched on. The issue must be listed under the area, or be
+        "Something else". A missing status or priority gets the product's default.
       operationId: createCall
       requestBody:
         required: true
@@ -266,13 +494,14 @@ paths:
             example:
               mobile: "01712 345678"
               customerId: PZ004182
-              area: inventory
+              area: 6708f1c2a9b3e4d5f6a7b8d0
               issue: Stock quantity doesn't match shelf
               priority: high
               direction: inbound
               status: pending
               durationSeconds: 225
               outcome: Re-synced stock, waiting for customer to confirm
+              customFields: { branch: Dhaka }
       responses:
         "201":
           description: The call was logged.
@@ -305,13 +534,16 @@ paths:
           example: "01712345678"
         - name: area
           in: query
-          schema: { $ref: "#/components/schemas/ProblemArea" }
+          description: A problem area id.
+          schema: { type: string }
         - name: status
           in: query
-          schema: { $ref: "#/components/schemas/CallStatus" }
+          description: A status key from the product setup.
+          schema: { type: string }
         - name: priority
           in: query
-          schema: { $ref: "#/components/schemas/Priority" }
+          description: A priority key from the product setup.
+          schema: { type: string }
         - name: direction
           in: query
           schema: { $ref: "#/components/schemas/Direction" }
@@ -371,8 +603,10 @@ paths:
       tags: [Calls]
       summary: Update a call
       description: |
-        Changes how a call ended up and its notes. Only the agent who logged the call,
-        or an admin, can do this. An empty string clears a note.
+        Changes how a call ended up, its notes and its extra fields. Only the agent who
+        logged the call, or an admin, can do this. An empty string clears a note; a null
+        or empty answer clears an extra field. A call can keep a status or priority that
+        has since been switched off, but can't be moved onto one.
       operationId: updateCall
       parameters:
         - name: id
@@ -387,10 +621,11 @@ paths:
               type: object
               additionalProperties: false
               properties:
-                status: { $ref: "#/components/schemas/CallStatus" }
-                priority: { $ref: "#/components/schemas/Priority" }
+                status: { type: string, description: A status key from the product setup. }
+                priority: { type: string, description: A priority key from the product setup. }
                 outcome: { type: string, maxLength: 2000 }
                 comments: { type: string, maxLength: 5000 }
+                customFields: { $ref: "#/components/schemas/CustomFieldAnswers" }
             example: { status: under-review, outcome: Sent to the tech team }
       responses:
         "200":
@@ -411,6 +646,413 @@ paths:
               schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /users:
+    get:
+      tags: [Users]
+      summary: List the product's people
+      description: Oldest account first. `summary` counts the whole team, ignoring the filters.
+      operationId: listUsers
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          description: Part of a name or email address (case-insensitive).
+          schema: { type: string, maxLength: 80 }
+        - name: role
+          in: query
+          schema: { type: string, enum: [agent, admin] }
+      responses:
+        "200":
+          description: One page of users.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, summary]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/User" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+                  summary:
+                    type: object
+                    required: [total, admins, agents, signedInThisMonth]
+                    properties:
+                      total: { type: integer }
+                      admins: { type: integer }
+                      agents: { type: integer }
+                      signedInThisMonth: { type: integer }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: The logged-in user isn't an admin.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+    post:
+      tags: [Users]
+      summary: Add a support agent
+      description: |
+        Adds the person as an agent. Without an account, one is made (`name` is then
+        required) and its temporary password is returned once. Someone with an account
+        and no product is simply added. A person can only be in one product.
+      operationId: addUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewMember" }
+            example: { name: Karim Uddin, email: karim@example.com }
+      responses:
+        "201": { $ref: "#/components/responses/MemberAdded" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+        "409":
+          description: The person is already in this product, in another one, or is the super admin.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /users/{id}:
+    patch:
+      tags: [Users]
+      summary: Change someone's role (super admin)
+      description: Only the super admin decides who is a product admin. Nobody changes their own role here.
+      operationId: updateUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              additionalProperties: false
+              properties:
+                role: { type: string, enum: [agent, admin] }
+      responses:
+        "200":
+          description: The updated user.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotSuperAdmin" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    delete:
+      tags: [Users]
+      summary: Remove a person from the product
+      description: |
+        Their account stays, without a product (they see "Waiting for access" until
+        someone adds them again). Their calls are kept. Nobody removes themselves, and
+        only the super admin can remove a product admin.
+      operationId: removeUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Removed. }
+        "400":
+          description: Tried to remove your own account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Not an admin of this product, or the person is an admin and the caller isn't the super admin.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: The product's dashboard
+      description: |
+        Totals, a day-by-day series and breakdowns for the current product. "Today" and
+        the days follow the viewer's timezone (`tz`).
+      operationId: getDashboard
+      parameters:
+        - name: days
+          in: query
+          description: How far back the series and breakdowns go, today included.
+          schema: { type: integer, enum: [7, 30, 90], default: 30 }
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: The dashboard.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Dashboard" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NoProduct" }
+
+  /admin/products:
+    get:
+      tags: [Super admin]
+      summary: List every product
+      description: Oldest first, archived ones included, each with its admins, team size and activity.
+      operationId: listProducts
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: All products.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, summary]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/ProductCard" } }
+                  summary:
+                    type: object
+                    required: [products, archived, people, callsToday, callsTotal]
+                    properties:
+                      products: { type: integer, description: Active (not archived) products. }
+                      archived: { type: integer }
+                      people: { type: integer, description: Accounts in a product. }
+                      callsToday: { type: integer, description: Across active products. }
+                      callsTotal: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotSuperAdmin" }
+
+    post:
+      tags: [Super admin]
+      summary: Create a product with its first admin
+      description: |
+        The slug is made from the name ("Clinic Desk" -> "clinic-desk", or "clinic-desk-2"
+        if taken). The admin's email is checked first, so a refused admin never leaves a
+        product behind. Field errors about the admin are named "admin.name" / "admin.email".
+      operationId: createProduct
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, admin]
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 2, maxLength: 60 }
+                description: { type: string, maxLength: 200, default: "" }
+                accentColor: { $ref: "#/components/schemas/AccentColor" }
+                admin: { $ref: "#/components/schemas/NewMember" }
+            example:
+              name: Clinic Desk
+              accentColor: indigo
+              admin: { name: Nusrat Jahan, email: nusrat@example.com }
+      responses:
+        "201":
+          description: The product, and its admin's account (with a temporary password if it's new).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, admin]
+                properties:
+                  data: { $ref: "#/components/schemas/ProductCard" }
+                  admin: { $ref: "#/components/schemas/NewAccount" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotSuperAdmin" }
+        "409":
+          description: The admin's email belongs to someone in another product, or to the super admin.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /admin/products/{id}:
+    patch:
+      tags: [Super admin]
+      summary: Rename, recolour, archive or restore a product
+      description: Archiving shuts its members out (403, product "none"); nothing is deleted.
+      operationId: updateProductAsSuperAdmin
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+        - $ref: "#/components/parameters/Timezone"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 2, maxLength: 60 }
+                description: { type: string, maxLength: 200 }
+                accentColor: { $ref: "#/components/schemas/AccentColor" }
+                isArchived: { type: boolean }
+            example: { isArchived: true }
+      responses:
+        "200": { $ref: "#/components/responses/ProductCardResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotSuperAdmin" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /admin/products/{id}/admins:
+    post:
+      tags: [Super admin]
+      summary: Make someone an admin of the product
+      description: |
+        An agent already in the product is promoted (no new password). Anyone else is
+        added as an admin, with a new account and temporary password if they need one.
+      operationId: addProductAdmin
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+        - $ref: "#/components/parameters/Timezone"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewMember" }
+      responses:
+        "201":
+          description: The product's card, and the admin.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, admin]
+                properties:
+                  data: { $ref: "#/components/schemas/ProductCard" }
+                  admin: { $ref: "#/components/schemas/NewAccount" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotSuperAdmin" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Already an admin of this product, or belongs to another product.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /admin/products/{id}/admins/{userId}:
+    delete:
+      tags: [Super admin]
+      summary: Stop someone being an admin
+      description: They stay in the product as a support agent.
+      operationId: removeProductAdmin
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200": { $ref: "#/components/responses/ProductCardResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotSuperAdmin" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /admin/users:
+    get:
+      tags: [Super admin]
+      summary: List every account
+      description: Super admins first, then oldest first. Each account names its product.
+      operationId: listAllUsers
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          description: Part of a name or email address (case-insensitive).
+          schema: { type: string, maxLength: 80 }
+        - name: product
+          in: query
+          description: A product id, or "none" for accounts outside any product.
+          schema: { type: string }
+        - name: role
+          in: query
+          schema: { type: string, enum: [super-admin, admin, agent] }
+      responses:
+        "200":
+          description: One page of accounts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/User"
+                        - type: object
+                          properties:
+                            product:
+                              oneOf:
+                                - $ref: "#/components/schemas/ProductSummary"
+                                - type: "null"
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotSuperAdmin" }
+
+  /admin/open-product:
+    post:
+      tags: [Super admin]
+      summary: Open a product
+      description: |
+        Sets an httpOnly `product` cookie. From then on the super admin's /dashboard,
+        /product, /calls and /users requests work inside that product. Without the cookie,
+        the oldest active product is used. Other accounts' `product` cookies are ignored.
+      operationId: openProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId]
+              additionalProperties: false
+              properties:
+                productId: { type: string }
+      responses:
+        "200":
+          description: The opened product.
+          headers:
+            Set-Cookie: { schema: { type: string }, description: "product=<id>; HttpOnly; SameSite=Lax" }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ProductSummary" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotSuperAdmin" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     cookieAuth:
@@ -427,7 +1069,12 @@ components:
         name: { type: string }
         email: { type: string, format: email }
         phone: { type: string, description: "Empty when not set" }
-        role: { type: string, enum: [agent, admin] }
+        role: { type: string, enum: [agent, admin], description: The role inside their product. }
+        product: { type: [string, "null"], description: The id of the product they belong to. }
+        isSuperAdmin: { type: boolean }
+        mustChangePassword:
+          type: boolean
+          description: True until a new account replaces its temporary password.
         lastLoginAt: { type: string, format: date-time }
         passwordChangedAt: { type: string, format: date-time, description: "Missing until the password is first changed" }
         createdAt: { type: string, format: date-time }
@@ -439,19 +1086,115 @@ components:
       properties:
         data: { $ref: "#/components/schemas/User" }
 
-    ProblemArea:
-      type: string
-      description: Which PharmaZ247 module the problem is in.
-      enum: [pos, sales, inventory, purchase, appointments, accounting, master-data, setup, access, general]
-    Priority:
-      type: string
-      enum: [low, normal, high, urgent]
     Direction:
       type: string
       enum: [inbound, outbound]
-    CallStatus:
+
+    OptionColor:
       type: string
-      enum: [completed, pending, resolved, under-review]
+      enum: [slate, emerald, teal, sky, indigo, violet, rose, amber, orange, lime]
+    AccentColor:
+      type: string
+      enum: [emerald, teal, indigo, sky, rose, purple, amber]
+    AreaIcon:
+      type: string
+      description: A lucide icon name.
+      default: life-buoy
+      enum: [monitor, receipt, package, truck, calendar-clock, calculator, book-user, building-2, key-round, life-buoy, phone, headset, shopping-cart, credit-card, wallet, users, file-text, clipboard-list, settings, wrench, bug, globe, wifi, database, server, smartphone, printer, scan-barcode, pill, stethoscope, heart-pulse, graduation-cap, store, chart-column, bell, mail, message-circle, lock, shield-check, zap, cloud, layers]
+
+    Option:
+      type: object
+      description: A status or a priority.
+      required: [key, label, color, isDefault, isActive]
+      properties:
+        key: { type: string, description: What calls save. Never changes., example: under-review }
+        label: { type: string, example: Under Review }
+        color: { $ref: "#/components/schemas/OptionColor" }
+        isDefault: { type: boolean }
+        isActive: { type: boolean }
+    OptionInput:
+      type: object
+      required: [label]
+      additionalProperties: false
+      properties:
+        key: { type: string, description: Leave out for a new item. }
+        label: { type: string, minLength: 1, maxLength: 40 }
+        color: { $ref: "#/components/schemas/OptionColor", default: slate }
+        isDefault: { type: boolean, default: false }
+        isActive: { type: boolean, default: true }
+
+    CustomField:
+      type: object
+      required: [key, label, type, options, required, isActive]
+      properties:
+        key: { type: string, description: The name its answer is saved under on calls., example: branch }
+        label: { type: string, example: Branch }
+        type: { type: string, enum: [text, number, select, date] }
+        options: { type: array, items: { type: string }, description: The choices of a select. }
+        required: { type: boolean }
+        isActive: { type: boolean }
+    CustomFieldInput:
+      type: object
+      required: [label, type]
+      additionalProperties: false
+      properties:
+        key: { type: string, description: Leave out for a new field. }
+        label: { type: string, minLength: 1, maxLength: 60 }
+        type: { type: string, enum: [text, number, select, date] }
+        options: { type: array, maxItems: 50, items: { type: string }, description: Required (and unique) for a select. }
+        required: { type: boolean, default: false }
+        isActive: { type: boolean, default: true }
+    CustomFieldAnswers:
+      type: object
+      description: |
+        Answers by field key. Text up to 500 characters; numbers (a numeric string is
+        accepted); one of a select's options; dates as YYYY-MM-DD.
+      additionalProperties: { type: [string, number, "null"] }
+      example: { branch: Dhaka, invoice-amount: 1250.5, visit-date: "2026-10-01" }
+
+    Issue:
+      type: object
+      required: [id, label, isActive]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        isActive: { type: boolean }
+    IssueInput:
+      type: object
+      required: [label]
+      additionalProperties: false
+      properties:
+        id: { type: string, description: Leave out for a new issue. }
+        label: { type: string, minLength: 1, maxLength: 120 }
+        isActive: { type: boolean, default: true }
+    ProblemArea:
+      type: object
+      required: [id, name, icon, order, isActive, issues]
+      properties:
+        id: { type: string }
+        name: { type: string, example: Inventory & Stock }
+        icon: { $ref: "#/components/schemas/AreaIcon" }
+        order: { type: integer }
+        isActive: { type: boolean }
+        issues: { type: array, items: { $ref: "#/components/schemas/Issue" } }
+
+    ProductSetup:
+      type: object
+      required: [product, statuses, priorities, customFields, areas]
+      properties:
+        product:
+          type: object
+          required: [id, name, slug, accentColor]
+          properties:
+            id: { type: string }
+            name: { type: string, example: PharmaZ247 }
+            slug: { type: string, example: pharmaz247 }
+            description: { type: string }
+            accentColor: { $ref: "#/components/schemas/AccentColor" }
+        statuses: { type: array, items: { $ref: "#/components/schemas/Option" } }
+        priorities: { type: array, items: { $ref: "#/components/schemas/Option" } }
+        customFields: { type: array, items: { $ref: "#/components/schemas/CustomField" } }
+        areas: { type: array, items: { $ref: "#/components/schemas/ProblemArea" } }
 
     CallInput:
       type: object
@@ -464,11 +1207,11 @@ components:
           example: "+8801712345678"
         customerId: { type: string, maxLength: 50 }
         transactionNo: { type: string, maxLength: 50 }
-        area: { $ref: "#/components/schemas/ProblemArea" }
-        issue: { type: string, maxLength: 200 }
-        priority: { $ref: "#/components/schemas/Priority", default: normal }
+        area: { type: string, description: A problem area id. }
+        issue: { type: string, maxLength: 200, description: 'One of the area''s issues, or "Something else".' }
+        priority: { type: string, description: A priority key. Defaults to the product's default priority. }
         direction: { $ref: "#/components/schemas/Direction", default: inbound }
-        status: { $ref: "#/components/schemas/CallStatus", default: pending }
+        status: { type: string, description: A status key. Defaults to the product's default status. }
         durationSeconds: { type: integer, minimum: 0, maximum: 86400 }
         calledAt:
           type: string
@@ -476,24 +1219,27 @@ components:
           description: When the call happened. Defaults to the time it was logged.
         outcome: { type: string, maxLength: 2000 }
         comments: { type: string, maxLength: 5000 }
+        customFields: { $ref: "#/components/schemas/CustomFieldAnswers" }
 
     Call:
       type: object
-      required: [id, mobile, priority, direction, status, calledAt, createdAt, updatedAt]
+      required: [id, mobile, direction, calledAt, customFields, createdAt, updatedAt]
       properties:
         id: { type: string, example: 6708f1c2a9b3e4d5f6a7b8c9 }
         mobile: { type: string, description: Always stored as 01XXXXXXXXX., example: "01712345678" }
         customerId: { type: string }
         transactionNo: { type: string }
-        area: { $ref: "#/components/schemas/ProblemArea" }
+        area: { type: string, description: The problem area's id. }
+        areaName: { type: string, description: The area's name when the call was logged. }
         issue: { type: string }
-        priority: { $ref: "#/components/schemas/Priority" }
+        priority: { type: string, description: A priority key. }
         direction: { $ref: "#/components/schemas/Direction" }
-        status: { $ref: "#/components/schemas/CallStatus" }
+        status: { type: string, description: A status key. }
         durationSeconds: { type: integer }
         calledAt: { type: string, format: date-time }
         outcome: { type: string }
         comments: { type: string }
+        customFields: { $ref: "#/components/schemas/CustomFieldAnswers" }
         createdBy:
           type: object
           description: The agent who logged the call.
@@ -503,6 +1249,121 @@ components:
             name: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    NewMember:
+      type: object
+      required: [email]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 80
+          description: Required when there's no account with this email yet.
+        email: { type: string, format: email }
+
+    NewAccount:
+      type: object
+      required: [user, temporaryPassword]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        temporaryPassword:
+          type: [string, "null"]
+          description: Shown only this once, for a new account (null when the person already had one).
+          example: Kp7v-m2Qx-9hTa
+
+    ProductSummary:
+      type: object
+      required: [id, name, slug, accentColor]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        accentColor: { $ref: "#/components/schemas/AccentColor" }
+        isArchived: { type: boolean }
+
+    ProductCard:
+      allOf:
+        - $ref: "#/components/schemas/ProductSummary"
+        - type: object
+          required: [description, createdAt, admins, adminCount, agentCount, callsToday, callsTotal, lastCallAt]
+          properties:
+            description: { type: string }
+            createdAt: { type: string, format: date-time }
+            admins:
+              type: array
+              description: Up to 5, oldest first.
+              items:
+                type: object
+                required: [id, name, email, mustChangePassword]
+                properties:
+                  id: { type: string }
+                  name: { type: string }
+                  email: { type: string, format: email }
+                  mustChangePassword: { type: boolean }
+            adminCount: { type: integer }
+            agentCount: { type: integer }
+            callsToday: { type: integer }
+            callsTotal: { type: integer }
+            lastCallAt: { type: [string, "null"], format: date-time }
+
+    Dashboard:
+      type: object
+      required: [totals, period, daily, byStatus, byArea, byAgent, byDirection, recent]
+      properties:
+        totals:
+          type: object
+          required: [today, last7Days, thisMonth, allTime]
+          properties:
+            today: { type: integer }
+            last7Days: { type: integer }
+            thisMonth: { type: integer }
+            allTime: { type: integer }
+        period:
+          type: object
+          properties:
+            days: { type: integer }
+            from: { type: string, format: date-time }
+        daily:
+          type: array
+          description: One entry per day of the period, oldest first, quiet days included.
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date, example: "2026-10-13" }
+              count: { type: integer }
+        byStatus:
+          type: array
+          items:
+            type: object
+            properties:
+              status: { type: [string, "null"] }
+              count: { type: integer }
+        byArea:
+          type: array
+          description: The 8 busiest areas, by the name saved on each call.
+          items:
+            type: object
+            properties:
+              area: { type: [string, "null"] }
+              count: { type: integer }
+        byAgent:
+          type: array
+          description: The 5 agents who logged the most calls.
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              count: { type: integer }
+        byDirection:
+          type: object
+          additionalProperties: { type: integer }
+          example: { inbound: 40, outbound: 2 }
+        recent:
+          type: array
+          description: The 6 latest calls.
+          items: { $ref: "#/components/schemas/Call" }
 
     PageMeta:
       type: object
@@ -526,7 +1387,71 @@ components:
               type: object
               additionalProperties: { type: string }
 
+  parameters:
+    Timezone:
+      name: tz
+      in: query
+      description: The browser's Date.getTimezoneOffset() in minutes (Dhaka is -360), so "today" is the viewer's today.
+      schema: { type: integer, minimum: -840, maximum: 840, default: 0 }
+    ProductId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
   responses:
+    MemberAdded:
+      description: The person, now in the product, and their temporary password if a new account was made.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data, temporaryPassword]
+            properties:
+              data: { $ref: "#/components/schemas/User" }
+              temporaryPassword: { type: [string, "null"], example: Kp7v-m2Qx-9hTa }
+    ProductCardResponse:
+      description: The product's card, after the change.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { $ref: "#/components/schemas/ProductCard" }
+    NotSuperAdmin:
+      description: Only the super admin can do this (or the account still has to set its password).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { message: Only the super admin can do this. } }
+    SetupResponse:
+      description: The whole product setup, after the change.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { $ref: "#/components/schemas/ProductSetup" }
+    NoProduct:
+      description: The account hasn't been added to a product yet.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { message: You aren't in a product yet. Ask your product admin to add you., fields: { product: none } } }
+    NotProductAdmin:
+      description: Not an admin of this product, or not in a product yet.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { message: Only admins can do this. } }
+    AreaNameTaken:
+      description: Another problem area in the product has this name.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { message: There's already a problem area with this name., fields: { name: There's already a problem area with this name. } } }
     Unauthorized:
       description: Not logged in, or the login has expired.
       content:
@@ -534,7 +1459,7 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
           example: { error: { message: Please log in to continue. } }
     TooManyRequests:
-      description: Too many login or sign-up attempts from this IP. Try again in 15 minutes.
+      description: Too many login or password attempts from this IP. Try again in 15 minutes.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }

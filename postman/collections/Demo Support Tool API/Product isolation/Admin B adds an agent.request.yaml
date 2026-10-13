@@ -1,0 +1,26 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/users'
+order: 1700
+headers:
+  - key: Content-Type
+    value: 'application/json'
+  - key: X-Send-As
+    value: 'admin_b'
+body:
+  type: json
+  content: |-
+    {
+      "name": "Clinic Agent",
+      "email": "clinic.agent.{{run}}@example.com"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+      pm.test("adds them to product B as an agent", () => {
+        const user = pm.response.json().data;
+        pm.expect(user).to.include({ role: "agent", product: pm.collectionVariables.get("product_b_id") });
+      });
+      pm.collectionVariables.set("b_agent_id", pm.response.json().data.id);

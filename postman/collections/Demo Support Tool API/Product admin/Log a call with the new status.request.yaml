@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/calls'
+order: 2100
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "mobile": "01812345678",
+      "status": "escalated"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+      const call = pm.response.json().data;
+      pm.test("saves the status key", () => pm.expect(call.status).to.eql("escalated"));
+      pm.test("gets the product's default priority", () => pm.expect(call.priority).to.eql("normal"));
+      pm.collectionVariables.set("admin_call_id", call.id);

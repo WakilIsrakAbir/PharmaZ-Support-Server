@@ -1,0 +1,36 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/users'
+order: 1000
+headers:
+  - key: Content-Type
+    value: 'application/json'
+  - key: X-Send-As
+    value: 'admin'
+body:
+  type: json
+  content: |-
+    {
+      "name": "Test Agent",
+      "email": "{{email}}"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // A new address every run, so the collection can be run again and again
+      pm.collectionVariables.set("email", `test.agent.${Date.now()}@example.com`);
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+      const { data: user, temporaryPassword } = pm.response.json();
+      pm.test("makes an agent account in the product", () => {
+        pm.expect(user).to.include({ email: pm.collectionVariables.get("email"), name: "Test Agent", role: "agent" });
+        pm.expect(user.product).to.be.a("string").and.not.empty;
+        pm.expect(user).to.not.have.any.keys("passwordHash", "password", "_id");
+      });
+      pm.test("returns a one-time temporary password", () => pm.expect(temporaryPassword).to.match(/^[A-HJ-NP-Za-hj-km-np-z2-9]{4}-[A-HJ-NP-Za-hj-km-np-z2-9]{4}-[A-HJ-NP-Za-hj-km-np-z2-9]{4}$/));
+      pm.test("the account must change it at first login", () => pm.expect(user.mustChangePassword).to.eql(true));
+      pm.collectionVariables.set("temporary_password", temporaryPassword);
+      pm.collectionVariables.set("agent_id", user.id);

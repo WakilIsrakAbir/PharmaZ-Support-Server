@@ -1,0 +1,43 @@
+$kind: http-request
+method: PATCH
+url: '{{base_url}}/product/areas/{{test_area_id}}'
+order: 1300
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "{{test_area_name}} (renamed)",
+      "icon": "wrench",
+      "issues": [
+        {
+          "id": "{{issue_1_id}}",
+          "label": "Screen freezes on save"
+        },
+        {
+          "label": "Login loops"
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const setup = pm.response.json().data;
+      const area = setup.areas.find((a) => a.id === pm.collectionVariables.get("test_area_id"));
+      pm.collectionVariables.set("setup_json", JSON.stringify(setup));
+      pm.test("renames it and changes the icon", () => {
+        pm.expect(area.name).to.eql(pm.collectionVariables.get("test_area_name") + " (renamed)");
+        pm.expect(area.icon).to.eql("wrench");
+      });
+      pm.test("edits issues by id, adds new ones, and switches off the ones left out", () => {
+        pm.expect(area.issues.map((issue) => [issue.label, issue.isActive])).to.eql([
+          ["Screen freezes on save", true],
+          ["Login loops", true],
+          ["Wrong totals", false],
+        ]);
+        pm.expect(area.issues[0].id).to.eql(pm.collectionVariables.get("issue_1_id"));
+      });

@@ -1,0 +1,132 @@
+// PharmaZ247's problem areas, as they were hard-coded in the client before products had
+// their own setup. Used once by migrate-to-products.js; after that the product admin edits
+// them on the Settings pages. `legacyKey` is the value old calls saved as their area.
+export const PHARMAZ247_AREAS = [
+  {
+    legacyKey: "pos",
+    name: "POS & Billing",
+    icon: "monitor",
+    issues: [
+      "Can't open or close a shift",
+      "Barcode scanner not adding products",
+      "Product not found in POS search",
+      "Payment split mismatch (Cash / bKash / Nagad / Card)",
+      "Discount not applying correctly",
+      "Due collection not saving",
+      "Held sale missing after Recall",
+      "Receipt not printing",
+      "POS device token / device not registered",
+    ],
+  },
+  {
+    legacyKey: "sales",
+    name: "Sales & Returns",
+    icon: "receipt",
+    issues: [
+      "Order total is wrong",
+      "Can't edit or cancel an order",
+      "Sales return or refund failed",
+      "Customer due balance is incorrect",
+      "Sales missing from history",
+    ],
+  },
+  {
+    legacyKey: "inventory",
+    name: "Inventory & Stock",
+    icon: "package",
+    issues: [
+      "Stock quantity doesn't match shelf",
+      "Stock adjustment not saving",
+      "Bulk product import failed",
+      "Batch or expiry date is wrong",
+      "Near-expiry / expired alerts incorrect",
+      "Branch-to-branch transfer stuck",
+      "Barcode or label printing problem",
+      "Cold storage items not tracked",
+    ],
+  },
+  {
+    legacyKey: "purchase",
+    name: "Purchase & GRN",
+    icon: "truck",
+    issues: [
+      "Can't create a purchase order",
+      "GRN quantity or price mismatch",
+      "Reconciliation stuck on manager review",
+      "Purchase return failed",
+      "Supplier payable is incorrect",
+    ],
+  },
+  {
+    legacyKey: "appointments",
+    name: "Appointments",
+    icon: "calendar-clock",
+    issues: [
+      "Can't book a slot",
+      "Doctor schedule or availability wrong",
+      "Walk-in token / queue problem",
+      "Teleconsultation not connecting",
+      "Queue display screen not updating",
+    ],
+  },
+  {
+    legacyKey: "accounting",
+    name: "Accounting & Reports",
+    icon: "calculator",
+    issues: [
+      "Dashboard figures don't match",
+      "P&L report looks incorrect",
+      "Can't add or edit an expense",
+      "Transaction missing from the list",
+      "PDF export not working",
+    ],
+  },
+  {
+    legacyKey: "master-data",
+    name: "Customers & Suppliers",
+    icon: "book-user",
+    issues: [
+      "Duplicate customer or supplier",
+      "Can't add or edit a customer",
+      "Supplier details are wrong",
+      "Lookup values missing (category, manufacturer)",
+    ],
+  },
+  {
+    legacyKey: "setup",
+    name: "Branch & Users",
+    icon: "building-2",
+    issues: [
+      "Add or edit a branch",
+      "DGDA licence expiring / renewal",
+      "Add or remove a staff user",
+      "Role permissions need changing",
+      "Module not enabled for a branch",
+    ],
+  },
+  {
+    legacyKey: "access",
+    name: "Login & Access",
+    icon: "key-round",
+    issues: [
+      "Can't log in / forgot password",
+      "PIN not working or needs reset",
+      "Account locked",
+      "Can't switch branch",
+      "Keeps getting logged out",
+    ],
+  },
+  {
+    legacyKey: "general",
+    name: "General",
+    icon: "life-buoy",
+    issues: [
+      "App is slow or not loading",
+      "Bangla / English display problem",
+      "Notifications not arriving",
+      "Subscription or billing question",
+      "How-to question / training",
+      "Feature request",
+    ],
+  },
+];

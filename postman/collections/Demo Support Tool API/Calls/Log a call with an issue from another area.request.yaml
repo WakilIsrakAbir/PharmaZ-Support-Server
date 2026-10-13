@@ -1,0 +1,27 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/calls'
+order: 3500
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "mobile": "01712345678",
+      "area": "{{area_id}}",
+      "issue": "Printer is on fire",
+      "status": "done"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("names the issue and the status", () => {
+        const { fields } = pm.response.json().error;
+        pm.expect(fields).to.have.all.keys("issue", "status");
+        pm.expect(fields.issue).to.eql(`Pick one of the issues listed under ${pm.collectionVariables.get("area_name")}.`);
+        pm.expect(fields.status).to.eql("That status isn't available.");
+      });

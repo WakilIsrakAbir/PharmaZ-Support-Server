@@ -1,0 +1,40 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/dashboard?days=7&tz=-360'
+order: 1000
+queryParams:
+  - key: days
+    value: '7'
+  - key: tz
+    value: '-360'
+    description: Dhaka, 6 hours ahead of UTC
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const dashboard = pm.response.json().data;
+      pm.test("has the totals", () => {
+        pm.expect(dashboard.totals).to.have.all.keys("today", "last7Days", "thisMonth", "allTime");
+        pm.expect(dashboard.totals.today).to.be.at.least(1);
+        pm.expect(dashboard.totals.allTime).to.be.at.least(dashboard.totals.thisMonth);
+      });
+      pm.test("has one entry per day, oldest first, ending today", () => {
+        pm.expect(dashboard.daily).to.have.lengthOf(7);
+        const dates = dashboard.daily.map((day) => day.date);
+        pm.expect(dates).to.eql([...dates].sort());
+        const today = new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10);
+        pm.expect(dates.at(-1)).to.eql(today);
+      });
+      pm.test("the days add up to the breakdowns", () => {
+        const inPeriod = dashboard.daily.reduce((sum, day) => sum + day.count, 0);
+        pm.expect(dashboard.byStatus.reduce((sum, row) => sum + row.count, 0)).to.eql(inPeriod);
+        pm.expect(dashboard.byStatus[0]).to.have.all.keys("status", "count");
+      });
+      pm.test("names the busiest agents", () => {
+        dashboard.byAgent.forEach((agent) => pm.expect(agent).to.have.all.keys("id", "name", "count"));
+      });
+      pm.test("lists the latest calls with their agent", () => {
+        pm.expect(dashboard.recent.length).to.be.within(1, 6);
+        pm.expect(dashboard.recent[0].createdBy).to.have.property("name");
+      });

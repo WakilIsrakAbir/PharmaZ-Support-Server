@@ -1,0 +1,9 @@
+$kind: http-request
+method: DELETE
+url: '{{base_url}}/users/000000000000000000000000'
+order: 7100
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 403 before looking anything up", () => pm.response.to.have.status(403));

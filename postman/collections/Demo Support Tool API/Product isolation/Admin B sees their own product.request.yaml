@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/auth/me'
+order: 1300
+headers:
+  - key: X-Send-As
+    value: 'admin_b'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("product B, as its admin", () => {
+        const user = pm.response.json().data;
+        pm.expect(user).to.include({ role: "admin", isSuperAdmin: false, mustChangePassword: false });
+        pm.expect(user.product.id).to.eql(pm.collectionVariables.get("product_b_id"));
+      });

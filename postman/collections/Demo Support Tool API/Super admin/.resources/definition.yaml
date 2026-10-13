@@ -1,0 +1,5 @@
+$kind: collection
+name: Super admin
+description: |-
+  The super admin's console: products, their admins, and every account. Sent as admin_email.
+order: 2800

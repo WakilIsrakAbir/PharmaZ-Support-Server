@@ -1,0 +1,18 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/users'
+order: 1800
+headers:
+  - key: X-Send-As
+    value: 'admin_b'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("only product B's people", () => {
+        const { data, summary } = pm.response.json();
+        data.forEach((user) => pm.expect(user.product).to.eql(pm.collectionVariables.get("product_b_id")));
+        pm.expect(data.map((user) => user.email)).to.not.include(pm.collectionVariables.get("email"));
+        pm.expect(summary).to.include({ admins: 2, agents: 1 });
+      });

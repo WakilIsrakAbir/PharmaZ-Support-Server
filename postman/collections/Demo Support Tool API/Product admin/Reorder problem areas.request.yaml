@@ -1,0 +1,30 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/areas/order'
+order: 1800
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "ids": {{area_ids}}
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Move the test area to the front, keep the rest as they are
+      const ids = JSON.parse(pm.collectionVariables.get("setup_json")).areas.map((area) => area.id);
+      const testId = pm.collectionVariables.get("test_area_id");
+      pm.collectionVariables.set("area_ids", JSON.stringify([testId, ...ids.filter((id) => id !== testId)]));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const setup = pm.response.json().data;
+      pm.test("lists the areas in the new order", () => {
+        pm.expect(setup.areas.map((area) => area.id)).to.eql(JSON.parse(pm.collectionVariables.get("area_ids")));
+        pm.expect(setup.areas.map((area) => area.order)).to.eql(setup.areas.map((_, i) => i));
+      });

@@ -1,0 +1,6 @@
+$kind: collection
+name: Dashboard
+description: |-
+  The product dashboard: totals, a day-by-day series and breakdowns, counted in the
+  viewer's timezone (tz = Date.getTimezoneOffset()).
+order: 2700

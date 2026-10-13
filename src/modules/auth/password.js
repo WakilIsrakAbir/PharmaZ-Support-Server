@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
 // scrypt is built into Node and designed for passwords: slow on purpose, salted per user.
@@ -19,6 +19,16 @@ export async function verifyPassword(password, storedHash) {
 
   // Compares in constant time, so response timing doesn't leak how close a guess was
   return timingSafeEqual(expected, actual);
+}
+
+// No 0/O, 1/l/I: the password is read out or typed by hand
+const TEMPORARY_PASSWORD_CHARACTERS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+
+/** A one-time password for a new account, like "Kp7v-m2Qx-9hTa". */
+export function createTemporaryPassword() {
+  const group = () =>
+    Array.from({ length: 4 }, () => TEMPORARY_PASSWORD_CHARACTERS[randomInt(TEMPORARY_PASSWORD_CHARACTERS.length)]).join("");
+  return [group(), group(), group()].join("-");
 }
 
 const RESET_LINK_LIFETIME_MS = 30 * 60 * 1000;

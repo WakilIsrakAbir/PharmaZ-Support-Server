@@ -1,0 +1,22 @@
+$kind: http-request
+method: PATCH
+url: '{{base_url}}/calls/{{admin_call_id}}'
+order: 2400
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "status": "escalated",
+      "comments": "Still with the tech team"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("the call can keep the status it already has", () => {
+        pm.expect(pm.response.json().data).to.include({ status: "escalated", comments: "Still with the tech team" });
+      });

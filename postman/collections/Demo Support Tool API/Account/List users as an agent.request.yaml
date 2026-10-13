@@ -1,0 +1,13 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/users'
+order: 7000
+description: The test account is an agent, and only admins may manage users.
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 403", () => pm.response.to.have.status(403));
+      pm.test("says it's for admins", () => {
+        pm.expect(pm.response.json().error.message).to.eql("Only admins can do this.");
+      });

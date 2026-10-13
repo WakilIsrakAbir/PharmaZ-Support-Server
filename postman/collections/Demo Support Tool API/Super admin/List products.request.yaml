@@ -1,0 +1,24 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/admin/products?tz=-360'
+order: 1000
+headers:
+  - key: X-Send-As
+    value: 'admin'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const { data, summary } = pm.response.json();
+      pm.test("sums up the platform", () => pm.expect(summary).to.have.all.keys("products", "archived", "people", "callsToday", "callsTotal"));
+      pm.test("shows each product with its team and activity", () => {
+        data.forEach((product) =>
+          pm.expect(product).to.include.keys("id", "name", "slug", "accentColor", "isArchived", "admins", "adminCount", "agentCount", "callsToday", "callsTotal", "lastCallAt"),
+        );
+      });
+      pm.test("includes PharmaZ247 and its calls", () => {
+        const pharmaz = data.find((product) => product.id === pm.collectionVariables.get("pharmaz_id"));
+        pm.expect(pharmaz.callsTotal).to.be.at.least(1);
+        pm.expect(pharmaz.agentCount).to.be.at.least(1);
+      });

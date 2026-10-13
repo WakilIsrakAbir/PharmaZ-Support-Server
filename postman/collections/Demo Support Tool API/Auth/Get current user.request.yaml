@@ -7,8 +7,12 @@ scripts:
     language: text/javascript
     code: |-
       pm.test("returns 200", () => pm.response.to.have.status(200));
+      const user = pm.response.json().data;
       pm.test("returns the logged-in user", () => {
-        const user = pm.response.json().data;
-        pm.expect(user.email).to.eql(pm.collectionVariables.get("email"));
-        pm.expect(user.name).to.eql("Test Agent");
+        pm.expect(user).to.include({ email: pm.collectionVariables.get("email"), name: "Test Agent", role: "agent" });
+        pm.expect(user).to.include({ isSuperAdmin: false, mustChangePassword: false });
+      });
+      pm.test("includes the product they work in", () => {
+        pm.expect(user.product).to.include.keys("id", "name", "slug", "accentColor");
+        pm.collectionVariables.set("pharmaz_id", user.product.id);
       });

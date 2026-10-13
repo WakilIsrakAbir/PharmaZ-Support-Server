@@ -1,0 +1,16 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/product/setup'
+order: 2300
+description: "Only the super admin's product cookie counts; everyone else stays in their own product."
+headers:
+  - key: X-Send-As
+    value: 'admin_b'
+  - key: X-Product
+    value: '{{pharmaz_id}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("still gets product B", () => pm.expect(pm.response.json().data.product.id).to.eql(pm.collectionVariables.get("product_b_id")));

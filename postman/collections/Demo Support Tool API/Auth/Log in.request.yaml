@@ -4,7 +4,7 @@ url: '{{base_url}}/auth/login'
 order: 5000
 headers:
   - key: Content-Type
-    value: application/json
+    value: 'application/json'
 body:
   type: json
   content: |-
@@ -20,8 +20,5 @@ scripts:
       pm.test("accepts the email with extra spaces", () => {
         pm.expect(pm.response.json().data.email).to.eql(pm.collectionVariables.get("email"));
       });
-      pm.test("sets the token cookie", () => {
-        const cookie = pm.response.headers.get("Set-Cookie");
-        pm.expect(cookie).to.include("token=");
-        pm.collectionVariables.set("token", cookie.match(/token=([^;]+)/)[1]);
-      });
+      pm.test("sets the token cookie", () => pm.expect(pm.response.headers.get("Set-Cookie")).to.include("token="));
+      pm.collectionVariables.set("token", pm.response.headers.get("Set-Cookie").match(/token=([^;]+)/)[1]);

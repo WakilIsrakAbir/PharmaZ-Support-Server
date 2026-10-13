@@ -1,0 +1,9 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/admin/users'
+order: 2400
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 403", () => pm.response.to.have.status(403));

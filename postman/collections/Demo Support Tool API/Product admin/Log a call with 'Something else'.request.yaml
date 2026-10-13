@@ -1,0 +1,26 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/calls'
+order: 1450
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "mobile": "01812345678",
+      "area": "{{test_area_id}}",
+      "issue": "Something else"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+      const call = pm.response.json().data;
+      pm.test("saves the area by id and by its current name", () => {
+        pm.expect(call.area).to.eql(pm.collectionVariables.get("test_area_id"));
+        pm.expect(call.areaName).to.eql(pm.collectionVariables.get("test_area_name") + " (renamed)");
+        pm.expect(call.issue).to.eql("Something else");
+      });

@@ -1,0 +1,31 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/statuses'
+order: 2200
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "statuses": {{statuses_body}}
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Start from what's saved, so the run works on any database
+      const toOption = ({ key, label, color, isDefault, isActive }) => ({ key, label, color, isDefault, isActive });
+      const saved = JSON.parse(pm.collectionVariables.get("setup_json")).statuses;
+      const statuses = saved.filter((s) => s.isActive && s.key !== "escalated").map(toOption);
+      pm.collectionVariables.set("statuses_body", JSON.stringify(statuses));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const setup = pm.response.json().data;
+      pm.collectionVariables.set("setup_json", JSON.stringify(setup));
+      pm.test("keeps the left-out status, switched off", () => {
+        pm.expect(setup.statuses.find((s) => s.key === "escalated")).to.include({ isActive: false, isDefault: false });
+      });

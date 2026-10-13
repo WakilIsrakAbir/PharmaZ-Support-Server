@@ -1,0 +1,20 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/admin/users?search={{run}}'
+order: 2000
+headers:
+  - key: X-Send-As
+    value: 'admin'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const { data, meta } = pm.response.json();
+      pm.test("finds this run's accounts across products", () => {
+        pm.expect(data.map((user) => user.email)).to.include(pm.collectionVariables.get("admin_b_email"));
+        pm.expect(meta.total).to.eql(data.length);
+      });
+      pm.test("names each account's product", () => {
+        data.forEach((user) => pm.expect(user.product).to.include.keys("id", "name", "slug"));
+      });

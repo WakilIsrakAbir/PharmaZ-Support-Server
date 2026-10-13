@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/admin/products/{{product_b_id}}/admins'
+order: 1500
+headers:
+  - key: Content-Type
+    value: 'application/json'
+  - key: X-Send-As
+    value: 'admin'
+body:
+  type: json
+  content: |-
+    {
+      "name": "Second Admin",
+      "email": "second.{{run}}@example.com"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+      const { data: product, admin } = pm.response.json();
+      pm.test("the product now has two admins", () => pm.expect(product.adminCount).to.eql(2));
+      pm.test("the new admin gets a temporary password", () => pm.expect(admin.temporaryPassword).to.match(/^[A-HJ-NP-Za-hj-km-np-z2-9]{4}-[A-HJ-NP-Za-hj-km-np-z2-9]{4}-[A-HJ-NP-Za-hj-km-np-z2-9]{4}$/));
+      pm.collectionVariables.set("second_admin_id", admin.user.id);

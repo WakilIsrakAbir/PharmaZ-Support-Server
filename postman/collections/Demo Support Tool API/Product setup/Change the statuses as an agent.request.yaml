@@ -1,0 +1,23 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/statuses'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "statuses": [
+        {
+          "label": "Taken over"
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 403", () => pm.response.to.have.status(403));
+      pm.test("explains who can do it", () => pm.expect(pm.response.json().error.message).to.eql("Only admins can do this."));

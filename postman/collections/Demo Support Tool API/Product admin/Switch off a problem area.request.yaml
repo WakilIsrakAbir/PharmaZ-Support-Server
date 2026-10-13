@@ -1,0 +1,21 @@
+$kind: http-request
+method: PATCH
+url: '{{base_url}}/product/areas/{{test_area_id}}'
+order: 1500
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "isActive": false
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const setup = pm.response.json().data;
+      const area = setup.areas.find((a) => a.id === pm.collectionVariables.get("test_area_id"));
+      pm.test("keeps the area, switched off", () => pm.expect(area.isActive).to.eql(false));

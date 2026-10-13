@@ -1,0 +1,24 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/custom-fields'
+order: 3600
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "customFields": []
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const setup = pm.response.json().data;
+      pm.collectionVariables.set("setup_json", JSON.stringify(setup));
+      pm.test("keeps every field, switched off", () => {
+        pm.expect(setup.customFields.length).to.be.at.least(3);
+        setup.customFields.forEach((field) => pm.expect(field.isActive).to.eql(false));
+      });

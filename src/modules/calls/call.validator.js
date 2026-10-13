@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CALL_STATUSES, DIRECTIONS, PRIORITIES, PROBLEM_AREAS } from "./call.constants.js";
+import { DIRECTIONS } from "./call.constants.js";
 
 // Bangladeshi mobile numbers, stored as 01XXXXXXXXX
 const MOBILE_PATTERN = /^01[3-9]\d{8}$/;
@@ -19,6 +19,17 @@ const optionalText = (maxLength) =>
     .transform((value) => value || undefined);
 
 const isoDate = z.iso.datetime({ offset: true, error: "Use an ISO date, like 2026-10-13T09:30:00Z." });
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Unknown problem area.");
+
+// Status and priority are keys from the product's own lists; call.setup.js checks them
+const optionKey = optionalText(60);
+
+// Answers to the product's extra fields, checked against the setup in call.setup.js.
+// null or "" clears an answer.
+const customFields = z.record(
+  z.string().max(60),
+  z.union([z.string().max(1000), z.number(), z.null()], { error: "Enter text, a number or a date." }),
+);
 
 export const createCallSchema = z.strictObject({
   mobile: z
@@ -29,24 +40,26 @@ export const createCallSchema = z.strictObject({
     .refine((mobile) => MOBILE_PATTERN.test(mobile), "That doesn't look like a valid mobile number."),
   customerId: optionalText(50),
   transactionNo: optionalText(50),
-  area: z.enum(PROBLEM_AREAS).optional(),
+  area: z.union([objectId, z.literal("")]).optional().transform((value) => value || undefined),
   issue: optionalText(200),
-  priority: z.enum(PRIORITIES).default("normal"),
+  priority: optionKey,
   direction: z.enum(DIRECTIONS).default("inbound"),
-  status: z.enum(CALL_STATUSES).default("pending"),
+  status: optionKey,
   durationSeconds: z.int().min(0).max(86_400).optional(),
   calledAt: isoDate.optional(),
   outcome: optionalText(2000),
   comments: optionalText(5000),
+  customFields: customFields.default({}),
 });
 
-// What can change after a call is logged: how it ended up, and the notes.
+// What can change after a call is logged: how it ended up, the notes and the extra fields.
 // An empty string clears a note.
 export const updateCallSchema = z.strictObject({
-  status: z.enum(CALL_STATUSES).optional(),
-  priority: z.enum(PRIORITIES).optional(),
+  status: optionKey,
+  priority: optionKey,
   outcome: z.string().trim().max(2000).optional(),
   comments: z.string().trim().max(5000).optional(),
+  customFields: customFields.optional(),
 });
 
 export const listCallsSchema = z.object({
@@ -55,9 +68,9 @@ export const listCallsSchema = z.object({
   // Part of a mobile number or transaction no.
   search: optionalText(50),
   mobile: z.string().trim().transform(normalizeMobile).optional(),
-  area: z.enum(PROBLEM_AREAS).optional(),
-  status: z.enum(CALL_STATUSES).optional(),
-  priority: z.enum(PRIORITIES).optional(),
+  area: objectId.optional(),
+  status: optionKey,
+  priority: optionKey,
   direction: z.enum(DIRECTIONS).optional(),
   // Calls from `from` (inclusive) up to `to` (exclusive)
   from: isoDate.optional(),

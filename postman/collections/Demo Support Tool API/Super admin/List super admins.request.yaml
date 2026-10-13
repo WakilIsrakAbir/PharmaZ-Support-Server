@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/admin/users?role=super-admin'
+order: 2050
+headers:
+  - key: X-Send-As
+    value: 'admin'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("only super admins, with no product", () => {
+        const { data } = pm.response.json();
+        pm.expect(data.map((user) => user.email)).to.include(pm.environment.get("admin_email"));
+        data.forEach((user) => pm.expect(user).to.include({ isSuperAdmin: true, product: null }));
+      });

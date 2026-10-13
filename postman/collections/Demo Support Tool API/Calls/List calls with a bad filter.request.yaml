@@ -1,17 +1,18 @@
 $kind: http-request
 method: GET
-url: '{{base_url}}/calls?limit=500&status=done'
+url: '{{base_url}}/calls?limit=500&area=inventory'
 order: 6000
 queryParams:
   - key: limit
     value: '500'
-  - key: status
-    value: done
+  - key: area
+    value: inventory
+    description: Areas are filtered by id
 scripts:
   - type: afterResponse
     language: text/javascript
     code: |-
       pm.test("returns 400", () => pm.response.to.have.status(400));
       pm.test("names the bad filters", () => {
-        pm.expect(pm.response.json().error.fields).to.have.all.keys("limit", "status");
+        pm.expect(pm.response.json().error.fields).to.have.all.keys("limit", "area");
       });

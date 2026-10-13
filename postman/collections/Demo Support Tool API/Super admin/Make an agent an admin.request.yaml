@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/admin/products/{{product_b_id}}/admins'
+order: 1750
+headers:
+  - key: Content-Type
+    value: 'application/json'
+  - key: X-Send-As
+    value: 'admin'
+body:
+  type: json
+  content: |-
+    {
+      "email": "second.{{run}}@example.com"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+      pm.test("promotes them, without a new password", () => {
+        const { data, admin } = pm.response.json();
+        pm.expect(data).to.include({ adminCount: 2, agentCount: 0 });
+        pm.expect(admin.temporaryPassword).to.eql(null);
+      });

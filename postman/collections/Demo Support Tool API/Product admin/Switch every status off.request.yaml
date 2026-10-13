@@ -1,0 +1,25 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/statuses'
+order: 2600
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "statuses": [
+        {
+          "key": "pending",
+          "label": "Pending",
+          "isActive": false
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("explains the rule", () => pm.expect(pm.response.json().error.fields.statuses).to.eql("Keep at least one switched on."));

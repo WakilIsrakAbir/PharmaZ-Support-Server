@@ -1,0 +1,30 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/statuses'
+order: 2500
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "statuses": [
+        {
+          "key": "pending",
+          "label": "Pending",
+          "isDefault": true
+        },
+        {
+          "key": "completed",
+          "label": "Completed",
+          "isDefault": true
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("explains the rule", () => pm.expect(pm.response.json().error.fields.statuses).to.eql("Only one can be the default."));

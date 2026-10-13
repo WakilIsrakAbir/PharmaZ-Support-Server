@@ -1,0 +1,25 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/custom-fields'
+order: 3050
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "customFields": [
+        {
+          "label": "Region",
+          "type": "select",
+          "options": []
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("names the bad fields", () => pm.expect(pm.response.json().error.fields).to.have.all.keys("customFields.0.options"));

@@ -1,0 +1,21 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/areas/order'
+order: 1700
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "ids": [
+        "{{test_area_id}}"
+      ]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("asks for every area", () => pm.expect(pm.response.json().error.message).to.eql("Send every problem area exactly once."));

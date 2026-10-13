@@ -1,13 +1,13 @@
 $kind: http-request
 method: GET
-url: '{{base_url}}/calls?mobile=8801712345678&area=inventory&limit=5'
+url: '{{base_url}}/calls?mobile=8801712345678&area={{area_id}}&limit=5'
 order: 5000
 queryParams:
   - key: mobile
     value: '8801712345678'
     description: The 88 prefix is removed, so this matches the stored 01712345678
   - key: area
-    value: inventory
+    value: '{{area_id}}'
   - key: limit
     value: '5'
 scripts:
@@ -23,7 +23,7 @@ scripts:
       pm.test("every call matches the filters", () => {
         data.forEach((call) => {
           pm.expect(call.mobile).to.eql("01712345678");
-          pm.expect(call.area).to.eql("inventory");
+          pm.expect(call.area).to.eql(pm.collectionVariables.get("area_id"));
         });
       });
       pm.test("returns page info", () => {

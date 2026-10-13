@@ -1,0 +1,45 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/admin/products?tz=-360'
+order: 1100
+headers:
+  - key: Content-Type
+    value: 'application/json'
+  - key: X-Send-As
+    value: 'admin'
+body:
+  type: json
+  content: |-
+    {
+      "name": "  Clinic Desk {{run}}  ",
+      "description": "Clinic front desk",
+      "accentColor": "indigo",
+      "admin": {
+        "name": "Product B Admin",
+        "email": "{{admin_b_email}}"
+      }
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      const run = Date.now();
+      pm.collectionVariables.set("run", run);
+      pm.collectionVariables.set("admin_b_email", `admin.b.${run}@example.com`);
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+      const { data: product, admin } = pm.response.json();
+      pm.test("creates the product with a slug from its name", () => {
+        pm.expect(product.name).to.eql(`Clinic Desk ${pm.collectionVariables.get("run")}`);
+        pm.expect(product.slug).to.eql(`clinic-desk-${pm.collectionVariables.get("run")}`);
+        pm.expect(product).to.include({ accentColor: "indigo", isArchived: false, adminCount: 1, agentCount: 0, callsTotal: 0 });
+      });
+      pm.test("makes its first admin, with a temporary password", () => {
+        pm.expect(admin.user).to.include({ email: pm.collectionVariables.get("admin_b_email"), role: "admin", mustChangePassword: true });
+        pm.expect(admin.user.product).to.eql(product.id);
+        pm.expect(admin.temporaryPassword).to.match(/^[A-HJ-NP-Za-hj-km-np-z2-9]{4}-[A-HJ-NP-Za-hj-km-np-z2-9]{4}-[A-HJ-NP-Za-hj-km-np-z2-9]{4}$/);
+      });
+      pm.collectionVariables.set("product_b_id", product.id);
+      pm.collectionVariables.set("admin_b_temp", admin.temporaryPassword);

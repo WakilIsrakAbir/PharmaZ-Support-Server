@@ -1,0 +1,20 @@
+$kind: http-request
+method: PATCH
+url: '{{base_url}}/admin/products/000000000000000000000000'
+order: 1900
+headers:
+  - key: Content-Type
+    value: 'application/json'
+  - key: X-Send-As
+    value: 'admin'
+body:
+  type: json
+  content: |-
+    {
+      "isArchived": true
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 404", () => pm.response.to.have.status(404));

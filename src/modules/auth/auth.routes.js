@@ -1,14 +1,14 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
-import { forgotPassword, login, logout, register, resetPassword } from "./auth.controller.js";
+import { forgotPassword, login, logout, resetPassword } from "./auth.controller.js";
 import { changePassword, getCurrentUser, updateCurrentUser } from "./account.controller.js";
 import { requireAuth } from "./auth.middleware.js";
 import { validate } from "../../middlewares/validate.js";
+import { env } from "../../config/env.js";
 import {
   changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
-  registerSchema,
   resetPasswordSchema,
   updateProfileSchema,
 } from "./auth.validator.js";
@@ -26,12 +26,11 @@ function limitTo(attempts) {
   });
 }
 
-// Slows down password guessing
-const passwordLimiter = limitTo(20);
-// Stops someone flooding an inbox with reset emails
-const emailLimiter = limitTo(5);
+// Slows down password guessing (AUTH_RATE_LIMIT raises it for automated test runs)
+const passwordLimiter = limitTo(env.authRateLimit);
+// Stops someone flooding an inbox with reset emails (a quarter of the above: 5 by default)
+const emailLimiter = limitTo(Math.ceil(env.authRateLimit / 4));
 
-router.post("/register", passwordLimiter, validate({ body: registerSchema }), register);
 router.post("/login", passwordLimiter, validate({ body: loginSchema }), login);
 router.post("/logout", logout);
 router.post("/forgot-password", emailLimiter, validate({ body: forgotPasswordSchema }), forgotPassword);

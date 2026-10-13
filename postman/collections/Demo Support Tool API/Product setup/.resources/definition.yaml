@@ -1,0 +1,5 @@
+$kind: collection
+name: Product setup
+description: |-
+  What every member of a product can read, and the changes only its admins can make.
+order: 1800

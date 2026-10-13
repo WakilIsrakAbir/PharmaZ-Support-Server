@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/admin/open-product'
+order: 2100
+headers:
+  - key: Content-Type
+    value: 'application/json'
+  - key: X-Send-As
+    value: 'admin'
+body:
+  type: json
+  content: |-
+    {
+      "productId": "{{product_b_id}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("returns the product", () => pm.expect(pm.response.json().data.id).to.eql(pm.collectionVariables.get("product_b_id")));
+      pm.test("remembers it in an httpOnly cookie", () => {
+        const cookie = pm.response.headers.get("Set-Cookie");
+        pm.expect(cookie).to.include(`product=${pm.collectionVariables.get("product_b_id")}`).and.include("HttpOnly");
+      });

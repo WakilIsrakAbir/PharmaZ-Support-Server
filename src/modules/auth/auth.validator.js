@@ -25,8 +25,6 @@ const phone = z
     error: "Enter a valid mobile number, like 01712-345678.",
   });
 
-export const registerSchema = z.strictObject({ name, email, password: newPassword });
-
 export const loginSchema = z.strictObject({
   email,
   password: z.string({ error: "Enter your password." }).min(1, "Enter your password."),

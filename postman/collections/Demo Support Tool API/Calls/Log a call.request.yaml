@@ -12,8 +12,8 @@ body:
       "mobile": "+880 1712-345678",
       "customerId": "PZ004182",
       "transactionNo": "",
-      "area": "inventory",
-      "issue": "Stock quantity doesn't match shelf",
+      "area": "{{area_id}}",
+      "issue": "{{issue}}",
       "priority": "high",
       "durationSeconds": 225,
       "outcome": "Re-synced stock, waiting for customer to confirm"
@@ -38,14 +38,18 @@ scripts:
         pm.expect(call.createdBy).to.have.property("id");
         pm.expect(call.createdBy).to.not.have.any.keys("email", "passwordHash");
       });
-      pm.test("missing fields get their defaults", () => {
+      pm.test("missing fields get the product's defaults", () => {
         pm.expect(call.direction).to.eql("inbound");
         pm.expect(call.status).to.eql("pending");
         pm.expect(call.calledAt).to.be.a("string");
       });
+      pm.test("saves the area's name with it", () => pm.expect(call.areaName).to.eql(pm.collectionVariables.get("area_name")));
+      pm.test("has no extra field answers", () => pm.expect(call.customFields).to.eql({}));
+      pm.test("doesn't repeat the product", () => pm.expect(call).to.not.have.property("product"));
       pm.test("empty strings are not stored", () => pm.expect(call).to.not.have.property("transactionNo"));
       pm.test("keeps the values that were sent", () => {
-        pm.expect(call.area).to.eql("inventory");
+        pm.expect(call.area).to.eql(pm.collectionVariables.get("area_id"));
+        pm.expect(call.issue).to.eql(pm.collectionVariables.get("issue"));
         pm.expect(call.priority).to.eql("high");
         pm.expect(call.durationSeconds).to.eql(225);
       });

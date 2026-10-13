@@ -4,3 +4,11 @@ values:
     value: 'http://localhost:5000/api'
     enabled: true
     type: default
+  - key: admin_email
+    value: 'admin@example.com'
+    enabled: true
+    type: default
+  - key: admin_password
+    value: 'admin-password-1'
+    enabled: true
+    type: secret

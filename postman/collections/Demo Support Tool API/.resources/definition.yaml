@@ -2,21 +2,38 @@ $kind: collection
 name: Demo Support Tool API
 description: |-
   Contract tests for the Express API (see openapi.yaml).
-  Run the whole collection in order: "Register" creates a fresh test account and
-  logs in, "Log a call" saves the new call id, "Change password" swaps the login,
-  and "Session end" logs out again.
+
+  Needs the super admin to exist first (admin_email / admin_password in the environment).
+  On a fresh database, create that account and run
+  npm run migrate:products -- --super-admin=<admin_email>
+  which also creates PharmaZ247. Start the API with AUTH_RATE_LIMIT=1000, since a run
+  logs in many times.
+
+  Run the whole collection in order. "Admin creates an agent" makes a fresh test account
+  with a temporary password, and "Set a new password" replaces it. The "Super admin" folder
+  creates a second product, and "Product isolation" checks its admin can't reach PharmaZ247.
+
+  Requests are sent as the test account. A request with an "X-Send-As: admin" header goes
+  as the super admin instead, "X-Send-As: admin_b" as product B's admin, and "X-Product"
+  adds the cookie of the product the super admin opened.
 variables:
   - key: email
     value: ''
-    description: Set by "Register" (a new address every run)
+    description: Set by "Admin creates an agent" (a new address every run)
   - key: password
     value: 'test-password-123'
   - key: token
     value: ''
-    description: Login cookie value, saved by "Register" / "Log in" and cleared by "Log out"
+    description: The test account's login, saved by "Log in" and cleared by "Log out"
   - key: old_token
     value: ""
     description: The login from before "Change password", to check it was logged out
+  - key: area_id
+    value: ''
+    description: Set by "Get the product setup" (an area with issues to pick from)
+  - key: admin_token
+    value: ''
+    description: The super admin's login (admin_email), made the first time a request needs it
   - key: call_id
     value: ''
     description: Set by "Log a call"
@@ -24,8 +41,28 @@ scripts:
   - type: http:beforeRequest
     language: text/javascript
     code: |-
-      // Send the login cookie the way a browser would.
-      const token = pm.collectionVariables.get("token");
-      if (token) {
-        pm.request.headers.upsert({ key: "Cookie", value: `token=${token}` });
+      // Send the login cookie the way a browser would. "X-Send-As: admin" sends the request
+      // as the super admin, logging in the first time; "X-Send-As: admin_b" uses admin_b_token.
+      const sendAs = pm.request.headers.get("X-Send-As");
+      const productId = pm.request.headers.get("X-Product");
+      pm.request.headers.remove("X-Send-As");
+      pm.request.headers.remove("X-Product");
+
+      if (sendAs === "admin" && !pm.collectionVariables.get("admin_token")) {
+        const res = await pm.sendRequest({
+          url: pm.environment.get("base_url") + "/auth/login",
+          method: "POST",
+          header: { "Content-Type": "application/json" },
+          body: {
+            mode: "raw",
+            raw: JSON.stringify({ email: pm.environment.get("admin_email"), password: pm.environment.get("admin_password") }),
+          },
+        });
+        pm.collectionVariables.set("admin_token", res.headers.get("Set-Cookie").match(/token=([^;]+)/)[1]);
+      }
+
+      const token = pm.collectionVariables.get(sendAs ? `${sendAs}_token` : "token");
+      const cookies = [token && `token=${token}`, productId && `product=${productId}`].filter(Boolean);
+      if (cookies.length) {
+        pm.request.headers.upsert({ key: "Cookie", value: cookies.join("; ") });
       }

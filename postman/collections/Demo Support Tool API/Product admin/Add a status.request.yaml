@@ -1,0 +1,38 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/statuses'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "statuses": {{statuses_body}}
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      // Start from what's saved, so the run works on any database
+      const toOption = ({ key, label, color, isDefault, isActive }) => ({ key, label, color, isDefault, isActive });
+      const saved = JSON.parse(pm.collectionVariables.get("setup_json")).statuses;
+
+      const statuses = saved.filter((s) => s.isActive && s.label !== "Escalated").map(toOption);
+      // Reuse "Escalated" from an earlier run, so its key stays the same
+      const earlier = saved.find((s) => s.label === "Escalated");
+      statuses.push({ ...(earlier && { key: earlier.key }), label: "Escalated", color: "orange", isActive: true });
+
+      pm.collectionVariables.set("statuses_body", JSON.stringify(statuses));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const setup = pm.response.json().data;
+      pm.collectionVariables.set("setup_json", JSON.stringify(setup));
+      const escalated = setup.statuses.find((s) => s.label === "Escalated");
+      pm.test("adds it with a key made from its name", () => {
+        pm.expect(escalated).to.include({ key: "escalated", color: "orange", isActive: true, isDefault: false });
+      });
+      pm.test("keeps the default", () => pm.expect(setup.statuses.find((s) => s.isDefault).key).to.eql("pending"));

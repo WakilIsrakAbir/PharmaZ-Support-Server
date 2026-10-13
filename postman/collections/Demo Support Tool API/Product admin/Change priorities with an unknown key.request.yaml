@@ -1,0 +1,24 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/product/priorities'
+order: 2700
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "priorities": [
+        {
+          "key": "made-up",
+          "label": "Made up"
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("names the key", () => pm.expect(pm.response.json().error.fields.priorities).to.eql('Unknown key "made-up".'));

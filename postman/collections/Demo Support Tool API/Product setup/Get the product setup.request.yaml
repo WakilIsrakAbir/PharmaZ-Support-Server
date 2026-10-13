@@ -1,0 +1,36 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/product/setup'
+order: 1000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+
+      const setup = pm.response.json().data;
+      pm.test("has the product and its lists", () => {
+        pm.expect(setup).to.have.all.keys("product", "statuses", "priorities", "customFields", "areas");
+        pm.expect(setup.product).to.include.keys("id", "name", "slug", "accentColor");
+      });
+      pm.test("statuses and priorities each have exactly one active default", () => {
+        for (const list of [setup.statuses, setup.priorities]) {
+          const defaults = list.filter((option) => option.isDefault);
+          pm.expect(defaults).to.have.lengthOf(1);
+          pm.expect(defaults[0].isActive).to.eql(true);
+        }
+      });
+      pm.test("areas have ids, icons and issues, and don't repeat the product", () => {
+        pm.expect(setup.areas).to.not.be.empty;
+        setup.areas.forEach((area) => {
+          pm.expect(area).to.include.keys("id", "name", "icon", "order", "isActive", "issues");
+          pm.expect(area).to.not.have.any.keys("_id", "product");
+          area.issues.forEach((issue) => pm.expect(issue).to.have.all.keys("id", "label", "isActive"));
+        });
+      });
+
+      // "Log a call" files its call under the first area that has an issue to pick
+      const area = setup.areas.find((a) => a.isActive && a.issues.some((issue) => issue.isActive));
+      pm.collectionVariables.set("area_id", area.id);
+      pm.collectionVariables.set("area_name", area.name);
+      pm.collectionVariables.set("issue", area.issues.find((issue) => issue.isActive).label);

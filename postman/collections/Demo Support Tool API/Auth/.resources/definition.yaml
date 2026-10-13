@@ -1,3 +1,6 @@
 $kind: collection
 name: Auth
+description: |-
+  There is no sign-up: an admin creates the account with a temporary password, which
+  has to be replaced at the first login.
 order: 1500

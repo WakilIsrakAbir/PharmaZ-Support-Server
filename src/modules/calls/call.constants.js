@@ -1,21 +1,4 @@
-// Allowed values for a call. Keep these in sync with client/src/config/call-log.js.
-
-// One per PharmaZ247 module
-export const PROBLEM_AREAS = [
-  "pos",
-  "sales",
-  "inventory",
-  "purchase",
-  "appointments",
-  "accounting",
-  "master-data",
-  "setup",
-  "access",
-  "general",
-];
-
-export const PRIORITIES = ["low", "normal", "high", "urgent"];
-
+// The one fixed list on a call. Problem areas, statuses, priorities and extra fields
+// come from the product's setup (see call.setup.js).
+// Keep in sync with CALL_DIRECTIONS in client/src/config/call-log.js.
 export const DIRECTIONS = ["inbound", "outbound"];
-
-export const CALL_STATUSES = ["completed", "pending", "resolved", "under-review"];

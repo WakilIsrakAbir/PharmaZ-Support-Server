@@ -17,6 +17,8 @@ export const env = {
   appUrl: clientUrls[0],
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
+  // Logins / password changes allowed per IP every 15 minutes
+  authRateLimit: Number(process.env.AUTH_RATE_LIMIT ?? 20),
   smtp: {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT ?? 587),

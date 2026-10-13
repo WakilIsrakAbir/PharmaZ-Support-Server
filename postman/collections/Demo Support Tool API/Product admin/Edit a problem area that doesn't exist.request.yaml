@@ -1,0 +1,18 @@
+$kind: http-request
+method: PATCH
+url: '{{base_url}}/product/areas/000000000000000000000000'
+order: 1650
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "isActive": true
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 404", () => pm.response.to.have.status(404));
