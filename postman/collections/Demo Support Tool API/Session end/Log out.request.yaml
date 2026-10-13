@@ -1,0 +1,14 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/auth/logout'
+order: 1000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 204", () => pm.response.to.have.status(204));
+      pm.test("clears the token cookie", () => {
+        pm.expect(pm.response.headers.get("Set-Cookie")).to.match(/token=;.*Expires=Thu, 01 Jan 1970/);
+      });
+      // The browser would now drop the cookie, so stop sending it
+      pm.collectionVariables.unset("token");

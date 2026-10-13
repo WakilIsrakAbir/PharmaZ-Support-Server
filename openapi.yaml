@@ -1,0 +1,374 @@
+openapi: 3.1.0
+info:
+  title: Demo Support Tool API
+  version: 1.0.0
+  description: |
+    Backend for the PharmaZ247 support tool. Agents log customer calls here,
+    and the Logs, QA and Performance pages read them back.
+
+    Every error response uses the same shape:
+    `{ "error": { "message": "...", "fields": { "<field>": "<why>" } } }`
+    (`fields` only appears on validation errors).
+servers:
+  - url: http://localhost:5000/api
+    description: Local development
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Calls
+
+# Logged-in users carry an httpOnly `token` cookie, set by register/login.
+security:
+  - cookieAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Create an account and log in
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 128 }
+            example: { name: Wakil Israk Abir, email: abir@example.com, password: a-long-password }
+      responses:
+        "201":
+          description: Account created. The response sets the `token` cookie.
+          headers:
+            Set-Cookie: { schema: { type: string }, description: "token=...; HttpOnly; SameSite=Lax" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "409":
+          description: The email is already registered.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Logged in. The response sets the `token` cookie.
+          headers:
+            Set-Cookie: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401":
+          description: Wrong email or password (the message doesn't say which).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { error: { message: Incorrect email or password. } }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out
+      description: Clears the `token` cookie. Safe to call when already logged out.
+      operationId: logout
+      security: []
+      responses:
+        "204": { description: Logged out. }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the logged-in user
+      operationId: getCurrentUser
+      responses:
+        "200":
+          description: The current user.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Check the API and database are up
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: The API is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, database]
+                properties:
+                  status: { type: string, enum: [ok] }
+                  database: { type: string, enum: [connected, disconnected] }
+              example: { status: ok, database: connected }
+
+  /calls:
+    post:
+      tags: [Calls]
+      summary: Log a call
+      description: Only `mobile` is required. Everything else has a sensible default or is optional.
+      operationId: createCall
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CallInput" }
+            example:
+              mobile: "01712 345678"
+              customerId: PZ004182
+              area: inventory
+              issue: Stock quantity doesn't match shelf
+              priority: high
+              direction: inbound
+              status: follow-up
+              durationSeconds: 225
+              outcome: Re-synced stock, waiting for customer to confirm
+      responses:
+        "201":
+          description: The call was logged.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Call" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+    get:
+      tags: [Calls]
+      summary: List logged calls
+      description: Newest call first. Every filter is optional and they can be combined.
+      operationId: listCalls
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: mobile
+          in: query
+          description: Calls from this number (any common format is accepted).
+          schema: { type: string }
+          example: "01712345678"
+        - name: area
+          in: query
+          schema: { $ref: "#/components/schemas/ProblemArea" }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/CallStatus" }
+        - name: priority
+          in: query
+          schema: { $ref: "#/components/schemas/Priority" }
+        - name: direction
+          in: query
+          schema: { $ref: "#/components/schemas/Direction" }
+      responses:
+        "200":
+          description: A page of calls.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Call" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /calls/{id}:
+    get:
+      tags: [Calls]
+      summary: Get one call
+      operationId: getCall
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The call.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Call" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+
+  schemas:
+    User:
+      type: object
+      required: [id, name, email, role, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [agent, admin] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UserResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/User" }
+
+    ProblemArea:
+      type: string
+      description: Which PharmaZ247 module the problem is in.
+      enum: [pos, sales, inventory, purchase, appointments, accounting, master-data, setup, access, general]
+    Priority:
+      type: string
+      enum: [low, normal, high, urgent]
+    Direction:
+      type: string
+      enum: [inbound, outbound]
+    CallStatus:
+      type: string
+      enum: [resolved, follow-up, escalated, callback, unreachable]
+
+    CallInput:
+      type: object
+      required: [mobile]
+      additionalProperties: false
+      properties:
+        mobile:
+          type: string
+          description: Bangladeshi mobile number. Spaces, dashes and a +88/88 prefix are accepted and removed.
+          example: "+8801712345678"
+        customerId: { type: string, maxLength: 50 }
+        transactionNo: { type: string, maxLength: 50 }
+        area: { $ref: "#/components/schemas/ProblemArea" }
+        issue: { type: string, maxLength: 200 }
+        priority: { $ref: "#/components/schemas/Priority", default: normal }
+        direction: { $ref: "#/components/schemas/Direction", default: inbound }
+        status: { $ref: "#/components/schemas/CallStatus", default: resolved }
+        durationSeconds: { type: integer, minimum: 0, maximum: 86400 }
+        calledAt:
+          type: string
+          format: date-time
+          description: When the call happened. Defaults to the time it was logged.
+        outcome: { type: string, maxLength: 2000 }
+        comments: { type: string, maxLength: 5000 }
+
+    Call:
+      type: object
+      required: [id, mobile, priority, direction, status, calledAt, createdAt, updatedAt]
+      properties:
+        id: { type: string, example: 6708f1c2a9b3e4d5f6a7b8c9 }
+        mobile: { type: string, description: Always stored as 01XXXXXXXXX., example: "01712345678" }
+        customerId: { type: string }
+        transactionNo: { type: string }
+        area: { $ref: "#/components/schemas/ProblemArea" }
+        issue: { type: string }
+        priority: { $ref: "#/components/schemas/Priority" }
+        direction: { $ref: "#/components/schemas/Direction" }
+        status: { $ref: "#/components/schemas/CallStatus" }
+        durationSeconds: { type: integer }
+        calledAt: { type: string, format: date-time }
+        outcome: { type: string }
+        comments: { type: string }
+        createdBy: { type: string, description: Id of the user who logged the call. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PageMeta:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        totalPages: { type: integer }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [message]
+          properties:
+            message: { type: string }
+            fields:
+              type: object
+              additionalProperties: { type: string }
+
+  responses:
+    Unauthorized:
+      description: Not logged in, or the login has expired.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { message: Please log in to continue. } }
+    TooManyRequests:
+      description: Too many login or sign-up attempts from this IP. Try again in 15 minutes.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: The request had invalid values.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              message: Validation failed
+              fields:
+                mobile: That doesn't look like a valid mobile number.
+    NotFound:
+      description: Nothing exists at that id.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              message: Call not found

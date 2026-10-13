@@ -1,0 +1,37 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/calls?mobile=8801712345678&area=inventory&limit=5'
+order: 5000
+queryParams:
+  - key: mobile
+    value: '8801712345678'
+    description: The 88 prefix is removed, so this matches the stored 01712345678
+  - key: area
+    value: inventory
+  - key: limit
+    value: '5'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+
+      const { data, meta } = pm.response.json();
+      pm.test("includes the call that was just logged", () => {
+        pm.expect(data.map((call) => call.id)).to.include(pm.collectionVariables.get("call_id"));
+      });
+      pm.test("every call matches the filters", () => {
+        data.forEach((call) => {
+          pm.expect(call.mobile).to.eql("01712345678");
+          pm.expect(call.area).to.eql("inventory");
+        });
+      });
+      pm.test("returns page info", () => {
+        pm.expect(meta).to.include({ page: 1, limit: 5 });
+        pm.expect(meta.total).to.be.at.least(1);
+        pm.expect(meta.totalPages).to.eql(Math.ceil(meta.total / 5));
+      });
+      pm.test("newest call first", () => {
+        const times = data.map((call) => Date.parse(call.calledAt));
+        pm.expect(times).to.eql([...times].sort((a, b) => b - a));
+      });

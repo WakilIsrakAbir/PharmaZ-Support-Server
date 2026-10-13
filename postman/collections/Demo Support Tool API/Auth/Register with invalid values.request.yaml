@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/auth/register'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "A",
+      "email": "not-an-email",
+      "password": "short"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("explains every bad field", () => {
+        const { fields } = pm.response.json().error;
+        pm.expect(fields).to.have.all.keys("name", "email", "password");
+        pm.expect(fields.password).to.eql("Use at least 8 characters.");
+      });

@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/health'
+order: 1000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("API and database are up", () => {
+        const body = pm.response.json();
+        pm.expect(body.status).to.eql("ok");
+        pm.expect(body.database).to.eql("connected");
+      });

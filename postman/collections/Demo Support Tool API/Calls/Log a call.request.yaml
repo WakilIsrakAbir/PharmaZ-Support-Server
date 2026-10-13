@@ -1,0 +1,47 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/calls'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "mobile": "+880 1712-345678",
+      "customerId": "PZ004182",
+      "transactionNo": "",
+      "area": "inventory",
+      "issue": "Stock quantity doesn't match shelf",
+      "priority": "high",
+      "durationSeconds": 225,
+      "outcome": "Re-synced stock, waiting for customer to confirm"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 201", () => pm.response.to.have.status(201));
+
+      const call = pm.response.json().data;
+      pm.collectionVariables.set("call_id", call.id);
+
+      pm.test("returns the call with an id instead of _id", () => {
+        pm.expect(call.id).to.be.a("string").and.not.empty;
+        pm.expect(call).to.not.have.property("_id");
+        pm.expect(call).to.not.have.property("__v");
+      });
+      pm.test("mobile is stored as 01XXXXXXXXX", () => pm.expect(call.mobile).to.eql("01712345678"));
+      pm.test("records which agent logged it", () => pm.expect(call.createdBy).to.be.a("string").and.not.empty);
+      pm.test("missing fields get their defaults", () => {
+        pm.expect(call.direction).to.eql("inbound");
+        pm.expect(call.status).to.eql("resolved");
+        pm.expect(call.calledAt).to.be.a("string");
+      });
+      pm.test("empty strings are not stored", () => pm.expect(call).to.not.have.property("transactionNo"));
+      pm.test("keeps the values that were sent", () => {
+        pm.expect(call.area).to.eql("inventory");
+        pm.expect(call.priority).to.eql("high");
+        pm.expect(call.durationSeconds).to.eql(225);
+      });

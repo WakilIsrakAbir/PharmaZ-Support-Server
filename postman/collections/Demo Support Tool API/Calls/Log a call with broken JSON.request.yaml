@@ -1,0 +1,18 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/calls'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: text
+  content: '{ "mobile": '
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("says the JSON is invalid", () => {
+        pm.expect(pm.response.json().error.message).to.eql("Request body is not valid JSON.");
+      });

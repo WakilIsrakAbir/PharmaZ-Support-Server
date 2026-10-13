@@ -1,0 +1,27 @@
+$kind: collection
+name: Demo Support Tool API
+description: |-
+  Contract tests for the Express API (see openapi.yaml).
+  Run the whole collection in order: "Register" creates a fresh test account and
+  logs in, "Log a call" saves the new call id, and "Session end" logs out again.
+variables:
+  - key: email
+    value: ''
+    description: Set by "Register" (a new address every run)
+  - key: password
+    value: 'test-password-123'
+  - key: token
+    value: ''
+    description: Login cookie value, saved by "Register" / "Log in" and cleared by "Log out"
+  - key: call_id
+    value: ''
+    description: Set by "Log a call"
+scripts:
+  - type: http:beforeRequest
+    language: text/javascript
+    code: |-
+      // Send the login cookie the way a browser would.
+      const token = pm.collectionVariables.get("token");
+      if (token) {
+        pm.request.headers.upsert({ key: "Cookie", value: `token=${token}` });
+      }

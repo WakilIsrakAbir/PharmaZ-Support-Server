@@ -1,0 +1,9 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/calls'
+order: 3000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("calls are not visible without logging in", () => pm.response.to.have.status(401));

@@ -1,0 +1,12 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/calls/not-a-real-id'
+order: 8000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 404", () => pm.response.to.have.status(404));
+      pm.test("says the call wasn't found", () => {
+        pm.expect(pm.response.json().error.message).to.eql("Call not found");
+      });

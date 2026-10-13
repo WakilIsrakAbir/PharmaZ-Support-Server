@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/calls'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "area": "pos"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("explains that mobile is needed", () => {
+        const { error } = pm.response.json();
+        pm.expect(error.message).to.eql("Validation failed");
+        pm.expect(error.fields.mobile).to.eql("Enter the customer's mobile number.");
+      });

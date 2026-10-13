@@ -1,0 +1,12 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/tickets'
+order: 3000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 404 in the standard error shape", () => {
+        pm.response.to.have.status(404);
+        pm.expect(pm.response.json().error.message).to.include("Route not found");
+      });

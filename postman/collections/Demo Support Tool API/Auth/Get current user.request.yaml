@@ -1,0 +1,14 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/auth/me'
+order: 6000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("returns the logged-in user", () => {
+        const user = pm.response.json().data;
+        pm.expect(user.email).to.eql(pm.collectionVariables.get("email"));
+        pm.expect(user.name).to.eql("Test Agent");
+      });

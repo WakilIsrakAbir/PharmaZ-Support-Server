@@ -1,0 +1,28 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/calls'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "mobile": "12345",
+      "area": "pharmacy",
+      "durationSeconds": -5,
+      "calledAt": "yesterday",
+      "isVip": true
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 400", () => pm.response.to.have.status(400));
+      pm.test("names every bad field", () => {
+        const { fields } = pm.response.json().error;
+        pm.expect(fields.mobile).to.eql("That doesn't look like a valid mobile number.");
+        pm.expect(fields).to.have.all.keys("mobile", "area", "durationSeconds", "calledAt", "isVip");
+        pm.expect(fields.isVip).to.eql("Unknown field.");
+      });

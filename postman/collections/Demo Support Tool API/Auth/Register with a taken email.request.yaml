@@ -1,0 +1,23 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/auth/register'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Someone Else",
+      "email": "{{email}}",
+      "password": "another-password"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 409", () => pm.response.to.have.status(409));
+      pm.test("points at the email field", () => {
+        pm.expect(pm.response.json().error.fields.email).to.eql("An account with this email already exists.");
+      });
