@@ -40,7 +40,7 @@ tags:
       (`isActive: false`), so older calls still show it.
   - name: Dashboard
   - name: Performance
-    description: How each agent handled calls over a period. Product admins and the super admin only.
+    description: How each agent handled calls over a period. Everyone in the product can see it.
   - name: Calls
   - name: Users
     description: The people in the product. Product admins add and remove agents; only the super admin changes roles.
@@ -831,8 +831,8 @@ paths:
       description: |
         Calls handled, closed and still awaiting action, average call length, direction,
         calls per day and the top reasons customers called, per person and for everyone
-        picked together. A call is closed when its status is marked `isClosed`. Product
-        admins and the super admin only.
+        picked together. A call is closed when its status is marked `isClosed`. Everyone
+        in the product can see it.
       operationId: getPerformance
       parameters:
         - name: from
@@ -866,7 +866,7 @@ paths:
                     items: { $ref: "#/components/schemas/PerformancePerson" }
         "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/NotProductAdmin" }
+        "403": { $ref: "#/components/responses/NoProduct" }
 
   /admin/products:
     get:

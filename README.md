@@ -42,7 +42,7 @@ src/modules/
   calls/      logging, listing and updating calls, checked against the product's setup
   users/      the product's people (admins add agents; accounts with temporary passwords)
   dashboard/  totals and breakdowns for the current product
-  performance/ per-agent calls, resolved rate, call length and reasons over a period (admins only)
+  performance/ per-agent calls, resolved rate, call length and reasons over a period
 ```
 
 Every request under `/dashboard`, `/performance`, `/product`, `/calls` and `/users` works inside one

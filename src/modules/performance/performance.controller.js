@@ -5,7 +5,7 @@ import { performancePipeline } from "./performance.pipeline.js";
 
 // How each agent did over a period: calls handled, how many are closed or still awaiting
 // action, call length, direction, calls per day and why customers called.
-// Runs behind requireAuth + resolveProduct + requireProductAdmin.
+// Runs behind requireAuth + resolveProduct; everyone in the product can see it.
 
 const TOP_REASONS = 5;
 const NO_CALLS = { calls: 0, closed: 0, inbound: 0, outbound: 0, timedCalls: 0, timedSeconds: 0 };

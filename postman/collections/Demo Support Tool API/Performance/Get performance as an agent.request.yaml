@@ -2,7 +2,7 @@ $kind: http-request
 method: GET
 url: '{{base_url}}/performance?from=2026-07-01&to=2026-07-31&tz=-360'
 order: 1000
-description: The test account is an agent, and performance is for admins.
+description: The test account is an agent. Agents can review the team's performance too.
 queryParams:
   - key: from
     value: '2026-07-01'
@@ -14,4 +14,5 @@ scripts:
   - type: afterResponse
     language: text/javascript
     code: |-
-      pm.test("returns 403", () => pm.response.to.have.status(403));
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      pm.test("has the report", () => pm.expect(pm.response.json().data).to.include.all.keys("range", "team", "agents"));

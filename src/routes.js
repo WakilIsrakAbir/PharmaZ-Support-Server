@@ -26,7 +26,7 @@ router.use("/admin", ...signedIn, requireSuperAdmin, adminRoutes);
 
 // Work inside the user's product (for the super admin: the product they opened)
 router.use("/dashboard", ...signedIn, resolveProduct, dashboardRoutes);
-router.use("/performance", ...signedIn, resolveProduct, requireProductAdmin, performanceRoutes);
+router.use("/performance", ...signedIn, resolveProduct, performanceRoutes);
 router.use("/product", ...signedIn, resolveProduct, productRoutes);
 router.use("/calls", ...signedIn, resolveProduct, callRoutes);
 router.use("/users", ...signedIn, resolveProduct, requireProductAdmin, userRoutes);
