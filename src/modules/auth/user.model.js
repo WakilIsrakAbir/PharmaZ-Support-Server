@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { hashPassword } from "./password.js";
+import { clearOnWrite, createDocCache } from "../../utils/doc-cache.js";
 
 // A role inside the user's product. Product admins are made by the super admin;
 // product admins add agents.
@@ -60,5 +61,9 @@ userSchema.methods.setPassword = async function setPassword(password) {
   this.resetTokenHash = undefined;
   this.resetTokenExpiresAt = undefined;
 };
+
+/** Logged-in accounts, read on every request by requireAuth. Emptied by any write to users. */
+export const userCache = createDocCache(() => User);
+clearOnWrite(userSchema, userCache);
 
 export const User = mongoose.model("User", userSchema);

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { clearOnWrite, createDocCache } from "../../utils/doc-cache.js";
 
 // What a brand-new product starts with. The product admin can change all of it.
 const DEFAULT_STATUSES = [
@@ -76,5 +77,9 @@ const productSchema = new mongoose.Schema(
 productSchema.methods.toSummary = function toSummary() {
   return { id: this.id, name: this.name, slug: this.slug, accentColor: this.accentColor };
 };
+
+/** Products, read on every request by resolveProduct. Emptied by any write to products. */
+export const productCache = createDocCache(() => Product);
+clearOnWrite(productSchema, productCache);
 
 export const Product = mongoose.model("Product", productSchema);

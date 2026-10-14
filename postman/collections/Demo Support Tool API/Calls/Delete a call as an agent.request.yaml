@@ -1,0 +1,11 @@
+$kind: http-request
+method: DELETE
+url: '{{base_url}}/calls/{{call_id}}'
+order: 8500
+description: The test account is an agent, and only admins may delete calls. The call stays.
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 403", () => pm.response.to.have.status(403));
+      pm.test("says it's for admins", () => pm.expect(pm.response.json().error.message).to.eql("Only admins can do this."));

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { Product } from "./product.model.js";
+import { Product, productCache } from "./product.model.js";
 import { HttpError } from "../../utils/http-error.js";
 
 // Super admins aren't tied to one product; they pick one to work in, kept in this cookie.
@@ -13,12 +13,18 @@ export async function findActiveProduct(req) {
   const { user } = req;
 
   if (!user.isSuperAdmin) {
-    return user.product ? Product.findOne({ _id: user.product, isArchived: false }) : null;
+    const product = user.product ? await findProduct(String(user.product)) : null;
+    return product && !product.isArchived ? product : null;
   }
 
   const openedId = req.cookies[PRODUCT_COOKIE];
-  const opened = mongoose.isValidObjectId(openedId) ? await Product.findById(openedId) : null;
-  return opened ?? Product.findOne({ isArchived: false }).sort({ createdAt: 1 });
+  const opened = mongoose.isValidObjectId(openedId) ? await findProduct(openedId) : null;
+  return opened ?? productCache.get("first-active", () => Product.findOne({ isArchived: false }).sort({ createdAt: 1 }));
+}
+
+// Cached briefly (see utils/doc-cache.js); any change to a product empties the cache
+function findProduct(id) {
+  return productCache.get(id, () => Product.findById(id));
 }
 
 /**

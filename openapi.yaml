@@ -648,6 +648,21 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Calls]
+      summary: Delete a call
+      description: Removes the call for good, so it also leaves the dashboard and performance numbers. Product admins and the super admin only.
+      operationId: deleteCall
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /users:
     get:

@@ -69,6 +69,13 @@ export async function updateCall(req, res) {
   res.json({ data: call });
 }
 
+/** Removes the call from the database for good. Admins only (see call.routes.js). */
+export async function deleteCall(req, res) {
+  const call = await findCall(req);
+  await call.deleteOne();
+  res.status(204).end();
+}
+
 // A call from another product is "not found", not "forbidden": its existence isn't shared
 async function findCall(req) {
   const { id } = req.params;
