@@ -24,6 +24,14 @@ If the account doesn't exist yet it's created, and a temporary password is print
 choose your own at the first login. The script also creates PharmaZ247 with its problem
 areas and moves older users and calls into it. It's safe to run again.
 
+Products made before statuses could close a call need them marked once (Completed and
+Resolved, same as a new product; admins can change it under Settings):
+
+```bash
+npm run migrate:closed-statuses -- --dry-run   # see what would change
+npm run migrate:closed-statuses
+```
+
 ## Modules
 
 ```
@@ -34,9 +42,10 @@ src/modules/
   calls/      logging, listing and updating calls, checked against the product's setup
   users/      the product's people (admins add agents; accounts with temporary passwords)
   dashboard/  totals and breakdowns for the current product
+  performance/ per-agent calls, resolved rate, call length and reasons over a period (admins only)
 ```
 
-Every request under `/dashboard`, `/product`, `/calls` and `/users` works inside one
+Every request under `/dashboard`, `/performance`, `/product`, `/calls` and `/users` works inside one
 product (`resolveProduct`), so products never see each other's data.
 
 ## Tests

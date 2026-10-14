@@ -16,7 +16,7 @@ scripts:
     language: text/javascript
     code: |-
       // Start from what's saved, so the run works on any database
-      const toOption = ({ key, label, color, isDefault, isActive }) => ({ key, label, color, isDefault, isActive });
+      const toOption = ({ key, label, color, isDefault, isActive, isClosed }) => ({ key, label, color, isDefault, isActive, isClosed });
       const saved = JSON.parse(pm.collectionVariables.get("setup_json")).statuses;
 
       const statuses = saved.filter((s) => s.isActive && s.label !== "Escalated").map(toOption);

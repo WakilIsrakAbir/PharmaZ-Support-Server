@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 // What a brand-new product starts with. The product admin can change all of it.
 const DEFAULT_STATUSES = [
-  { key: "completed", label: "Completed", color: "emerald" },
+  { key: "completed", label: "Completed", color: "emerald", isClosed: true },
   { key: "pending", label: "Pending", color: "amber", isDefault: true },
-  { key: "resolved", label: "Resolved", color: "sky" },
+  { key: "resolved", label: "Resolved", color: "sky", isClosed: true },
   { key: "under-review", label: "Under Review", color: "violet" },
 ];
 
@@ -28,6 +28,11 @@ const optionSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// A status can also close a call. On the Performance page closed calls count as
+// resolved, and the rest as still awaiting action.
+const statusSchema = optionSchema.clone();
+statusSchema.add({ isClosed: { type: Boolean, default: false } });
+
 const customFieldSchema = new mongoose.Schema(
   {
     key: { type: String, required: true },
@@ -50,7 +55,7 @@ const productSchema = new mongoose.Schema(
     isArchived: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
-    statuses: { type: [optionSchema], default: () => DEFAULT_STATUSES },
+    statuses: { type: [statusSchema], default: () => DEFAULT_STATUSES },
     priorities: { type: [optionSchema], default: () => DEFAULT_PRIORITIES },
     customFields: { type: [customFieldSchema], default: [] },
   },

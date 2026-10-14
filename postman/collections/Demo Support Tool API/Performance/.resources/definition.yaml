@@ -1,0 +1,6 @@
+$kind: collection
+name: Performance
+description: |-
+  Per-agent performance for a period (from/to are calendar days in the viewer's timezone).
+  Only product admins and the super admin may read it.
+order: 2750

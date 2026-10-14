@@ -28,7 +28,10 @@ const optionSchema = (what) =>
   });
 
 export const statusesSchema = z.strictObject({
-  statuses: z.array(optionSchema("status")).min(1, "Add at least one status.").max(20, "Keep it to 20 statuses."),
+  statuses: z
+    .array(optionSchema("status").extend({ isClosed: z.boolean().default(false) }))
+    .min(1, "Add at least one status.")
+    .max(20, "Keep it to 20 statuses."),
 });
 
 export const prioritiesSchema = z.strictObject({

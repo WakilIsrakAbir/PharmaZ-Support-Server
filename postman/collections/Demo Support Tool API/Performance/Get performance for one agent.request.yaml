@@ -1,0 +1,28 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/performance?from={{perf_from}}&to={{perf_to}}&tz=-360&agents={{perf_agent_id}}'
+order: 3000
+headers:
+  - key: X-Send-As
+    value: 'admin'
+  - key: X-Product
+    value: '{{pharmaz_id}}'
+queryParams:
+  - key: from
+    value: '{{perf_from}}'
+  - key: to
+    value: '{{perf_to}}'
+  - key: tz
+    value: '-360'
+  - key: agents
+    value: '{{perf_agent_id}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const { data } = pm.response.json();
+      pm.test("only the picked agent, with the whole share", () => {
+        pm.expect(data.agents.map((agent) => agent.id)).to.eql([pm.collectionVariables.get("perf_agent_id")]);
+        pm.expect(data.agents[0].share).to.eql(1);
+      });

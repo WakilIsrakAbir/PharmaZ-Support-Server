@@ -17,6 +17,21 @@ export function startOfLocalMonth(tzOffset, now = new Date()) {
   return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1) + tzOffset * MINUTE);
 }
 
+/** "2026-07-01" -> the first moment of that day for the viewer (or `daysLater` days on). */
+export function startOfDateKey(dateKey, tzOffset, daysLater = 0) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + daysLater) + tzOffset * MINUTE);
+}
+
+/** Every calendar date from `from` to `to`, both included: ["2026-07-01", "2026-07-02", ...]. */
+export function dateKeysBetween(from, to) {
+  const keys = [];
+  for (let time = Date.parse(from); time <= Date.parse(to); time += DAY) {
+    keys.push(new Date(time).toISOString().slice(0, 10));
+  }
+  return keys;
+}
+
 /** -360 -> "+06:00", the form MongoDB's date operators take. */
 export function toMongoTimezone(tzOffset) {
   const minutes = -tzOffset;

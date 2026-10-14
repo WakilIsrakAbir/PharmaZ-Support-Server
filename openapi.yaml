@@ -7,7 +7,7 @@ info:
     Dashboard pages read them back.
 
     The tool runs support for several products. Every account belongs to one product,
-    and everything under /dashboard, /product, /calls and /users works inside that
+    and everything under /dashboard, /performance, /product, /calls and /users works inside that
     product only. An account outside any active product gets 403 with
     `fields: { product: "none" }`.
 
@@ -39,6 +39,8 @@ tags:
       Nothing is ever deleted: an option left out of a list is switched off
       (`isActive: false`), so older calls still show it.
   - name: Dashboard
+  - name: Performance
+    description: How each agent handled calls over a period. Product admins and the super admin only.
   - name: Calls
   - name: Users
     description: The people in the product. Product admins add and remove agents; only the super admin changes roles.
@@ -304,10 +306,11 @@ paths:
                   type: array
                   minItems: 1
                   maxItems: 20
-                  items: { $ref: "#/components/schemas/OptionInput" }
+                  items: { $ref: "#/components/schemas/StatusInput" }
             example:
               statuses:
                 - { key: pending, label: Pending, color: amber, isDefault: true }
+                - { key: resolved, label: Resolved, color: sky, isClosed: true }
                 - { label: Escalated, color: orange }
       responses:
         "200": { $ref: "#/components/responses/SetupResponse" }
@@ -806,6 +809,50 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/NoProduct" }
 
+  /performance:
+    get:
+      tags: [Performance]
+      summary: How each agent did over a period
+      description: |
+        Calls handled, closed and still awaiting action, average call length, direction,
+        calls per day and the top reasons customers called, per person and for everyone
+        picked together. A call is closed when its status is marked `isClosed`. Product
+        admins and the super admin only.
+      operationId: getPerformance
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: First day, in the viewer's timezone.
+          schema: { type: string, format: date, example: "2026-07-01" }
+        - name: to
+          in: query
+          required: true
+          description: Last day (included). At most 92 days after `from`.
+          schema: { type: string, format: date, example: "2026-07-31" }
+        - name: agents
+          in: query
+          description: Comma-separated user ids (up to 50). Leave out for everyone.
+          schema: { type: string }
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: The report, and everyone who can be picked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, people]
+                properties:
+                  data: { $ref: "#/components/schemas/Performance" }
+                  people:
+                    type: array
+                    description: The product's team, plus anyone else who logged calls in the period.
+                    items: { $ref: "#/components/schemas/PerformancePerson" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotProductAdmin" }
+
   /admin/products:
     get:
       tags: [Super admin]
@@ -1122,6 +1169,25 @@ components:
         color: { $ref: "#/components/schemas/OptionColor", default: slate }
         isDefault: { type: boolean, default: false }
         isActive: { type: boolean, default: true }
+    Status:
+      description: A status. Closed ones count as resolved on the Performance page.
+      allOf:
+        - $ref: "#/components/schemas/Option"
+        - type: object
+          required: [isClosed]
+          properties:
+            isClosed: { type: boolean }
+    StatusInput:
+      type: object
+      required: [label]
+      additionalProperties: false
+      properties:
+        key: { type: string, description: Leave out for a new item. }
+        label: { type: string, minLength: 1, maxLength: 40 }
+        color: { $ref: "#/components/schemas/OptionColor", default: slate }
+        isDefault: { type: boolean, default: false }
+        isActive: { type: boolean, default: true }
+        isClosed: { type: boolean, default: false, description: Calls with this status are done with. }
 
     CustomField:
       type: object
@@ -1191,7 +1257,7 @@ components:
             slug: { type: string, example: pharmaz247 }
             description: { type: string }
             accentColor: { $ref: "#/components/schemas/AccentColor" }
-        statuses: { type: array, items: { $ref: "#/components/schemas/Option" } }
+        statuses: { type: array, items: { $ref: "#/components/schemas/Status" } }
         priorities: { type: array, items: { $ref: "#/components/schemas/Option" } }
         customFields: { type: array, items: { $ref: "#/components/schemas/CustomField" } }
         areas: { type: array, items: { $ref: "#/components/schemas/ProblemArea" } }
@@ -1364,6 +1430,71 @@ components:
           type: array
           description: The 6 latest calls.
           items: { $ref: "#/components/schemas/Call" }
+
+    PerformancePerson:
+      type: object
+      required: [id, name, role, isSuperAdmin, isMember]
+      properties:
+        id: { type: string }
+        name: { type: string, example: Tanha }
+        role: { type: string, enum: [agent, admin] }
+        isSuperAdmin: { type: boolean }
+        isMember: { type: boolean, description: False for someone who has left the product, or the super admin. }
+    PerformanceNumbers:
+      type: object
+      required: [calls, closed, awaiting, resolvedRate, avgSeconds, inbound, outbound]
+      properties:
+        calls: { type: integer }
+        closed: { type: integer }
+        awaiting: { type: integer, description: Calls not in a closed status. }
+        resolvedRate: { type: [number, "null"], description: closed / calls, null with no calls., example: 0.42 }
+        avgSeconds: { type: [integer, "null"], description: Over calls with a duration, null if none had one. }
+        inbound: { type: integer }
+        outbound: { type: integer }
+    Performance:
+      type: object
+      required: [range, closedStatuses, team, agents]
+      properties:
+        range:
+          type: object
+          properties:
+            from: { type: string, format: date }
+            to: { type: string, format: date }
+            days: { type: array, items: { type: string, format: date }, description: Every day of the range, oldest first. }
+        closedStatuses:
+          type: array
+          items: { type: string }
+          description: Labels of the statuses that count as closed. Empty means nothing counts as resolved yet.
+        team:
+          allOf:
+            - $ref: "#/components/schemas/PerformanceNumbers"
+            - type: object
+              properties:
+                daily: { type: array, items: { type: integer }, description: Calls per day, matching range.days. }
+        agents:
+          type: array
+          description: The picked people, most calls first. People with no calls are included.
+          items:
+            allOf:
+              - $ref: "#/components/schemas/PerformancePerson"
+              - $ref: "#/components/schemas/PerformanceNumbers"
+              - type: object
+                properties:
+                  share: { type: number, description: Their part of everyone's calls (0-1). }
+                  daily: { type: array, items: { type: integer } }
+                  reasons:
+                    type: array
+                    description: The 5 most common area + issue pairs.
+                    items:
+                      type: object
+                      properties:
+                        label: { type: string, example: Payout Issue - Beneficiary not credited }
+                        count: { type: integer }
+                  otherReasons:
+                    type: object
+                    properties:
+                      kinds: { type: integer }
+                      calls: { type: integer }
 
     PageMeta:
       type: object

@@ -12,7 +12,8 @@
     "dev": "node --watch --env-file-if-exists=.env src/index.js",
     "start": "node --env-file-if-exists=.env src/index.js",
     "test:api": "postman collection run \"postman/collections/Demo Support Tool API\" -e postman/environments/local.yaml",
-    "migrate:products": "node --env-file-if-exists=.env scripts/migrate-to-products.js"
+    "migrate:products": "node --env-file-if-exists=.env scripts/migrate-to-products.js",
+    "migrate:closed-statuses": "node --env-file-if-exists=.env scripts/mark-closed-statuses.js"
   },
   "dependencies": {
     "cookie-parser": "1.4.7",

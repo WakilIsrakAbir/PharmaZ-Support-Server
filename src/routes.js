@@ -6,6 +6,7 @@ import adminRoutes from "./modules/admin/admin.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import callRoutes from "./modules/calls/call.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
+import performanceRoutes from "./modules/performance/performance.routes.js";
 import productRoutes from "./modules/products/product.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 
@@ -25,6 +26,7 @@ router.use("/admin", ...signedIn, requireSuperAdmin, adminRoutes);
 
 // Work inside the user's product (for the super admin: the product they opened)
 router.use("/dashboard", ...signedIn, resolveProduct, dashboardRoutes);
+router.use("/performance", ...signedIn, resolveProduct, requireProductAdmin, performanceRoutes);
 router.use("/product", ...signedIn, resolveProduct, productRoutes);
 router.use("/calls", ...signedIn, resolveProduct, callRoutes);
 router.use("/users", ...signedIn, resolveProduct, requireProductAdmin, userRoutes);

@@ -1,0 +1,58 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/performance?from={{perf_from}}&to={{perf_to}}&tz=-360'
+order: 2000
+description: The last 7 days of PharmaZ247, opened by the super admin. The test account logged calls today.
+headers:
+  - key: X-Send-As
+    value: 'admin'
+  - key: X-Product
+    value: '{{pharmaz_id}}'
+queryParams:
+  - key: from
+    value: '{{perf_from}}'
+  - key: to
+    value: '{{perf_to}}'
+  - key: tz
+    value: '-360'
+    description: Dhaka, 6 hours ahead of UTC
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      const dhakaDay = (daysAgo) => new Date(Date.now() + 6 * 3600 * 1000 - daysAgo * 86400 * 1000).toISOString().slice(0, 10);
+      pm.collectionVariables.set("perf_from", dhakaDay(6));
+      pm.collectionVariables.set("perf_to", dhakaDay(0));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 200", () => pm.response.to.have.status(200));
+      const { data, people } = pm.response.json();
+      pm.test("covers each day of the range", () => {
+        pm.expect(data.range.days).to.have.lengthOf(7);
+        pm.expect(data.range.days.at(-1)).to.eql(pm.collectionVariables.get("perf_to"));
+        pm.expect(data.team.daily).to.have.lengthOf(7);
+      });
+      pm.test("the agents add up to the team", () => {
+        const sum = (key) => data.agents.reduce((total, agent) => total + agent[key], 0);
+        pm.expect(data.team.calls).to.be.at.least(1);
+        pm.expect(sum("calls")).to.eql(data.team.calls);
+        pm.expect(sum("closed")).to.eql(data.team.closed);
+        pm.expect(data.team.closed + data.team.awaiting).to.eql(data.team.calls);
+        pm.expect(data.team.daily.reduce((a, b) => a + b, 0)).to.eql(data.team.calls);
+      });
+      pm.test("each agent has their numbers", () => {
+        const agent = data.agents.find((a) => a.calls > 0);
+        pm.expect(agent).to.include.all.keys("id", "name", "role", "isMember", "calls", "closed", "awaiting",
+          "resolvedRate", "avgSeconds", "inbound", "outbound", "share", "daily", "reasons", "otherReasons");
+        pm.expect(agent.reasons.length).to.be.within(1, 5);
+        pm.expect(agent.resolvedRate).to.be.within(0, 1);
+      });
+      pm.test("busiest first", () => {
+        const calls = data.agents.map((agent) => agent.calls);
+        pm.expect(calls).to.eql([...calls].sort((a, b) => b - a));
+      });
+      pm.test("lists everyone who can be picked", () => {
+        pm.expect(people.length).to.be.at.least(data.agents.length);
+        pm.collectionVariables.set("perf_agent_id", data.agents[0].id);
+      });

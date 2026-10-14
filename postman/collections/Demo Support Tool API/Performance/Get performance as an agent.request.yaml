@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/performance?from=2026-07-01&to=2026-07-31&tz=-360'
+order: 1000
+description: The test account is an agent, and performance is for admins.
+queryParams:
+  - key: from
+    value: '2026-07-01'
+  - key: to
+    value: '2026-07-31'
+  - key: tz
+    value: '-360'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 403", () => pm.response.to.have.status(403));
