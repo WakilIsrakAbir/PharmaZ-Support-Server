@@ -25,7 +25,9 @@ export const env = {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-  mailFrom: process.env.MAIL_FROM ?? "PharmaZ247 Support <no-reply@localhost>",
+  // The platform's name, used in emails
+  brandName: "Tulip Tech Support",
+  mailFrom: process.env.MAIL_FROM ?? "Tulip Tech Support <no-reply@localhost>",
 };
 
 for (const name of ["MONGODB_URI", "JWT_SECRET"]) {

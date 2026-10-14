@@ -9,7 +9,7 @@ import { HttpError } from "../../utils/http-error.js";
 // swap in the new version in one go.
 
 /** Everything the forms need: statuses, priorities, custom fields and problem areas. */
-export async function loadSetup(product) {
+async function loadSetup(product) {
   const areas = await ProblemArea.find({ product: product._id }).sort({ order: 1, createdAt: 1 });
   const { id, name, slug, description, accentColor, statuses, priorities, customFields } = product.toJSON();
   return { product: { id, name, slug, description, accentColor }, statuses, priorities, customFields, areas };

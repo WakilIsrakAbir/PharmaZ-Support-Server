@@ -1,4 +1,4 @@
-# Support Tool — API
+# Tulip Tech Support Tool — API
 
 Express 5 + MongoDB (Mongoose) API for the support tool. The contract is in
 `openapi.yaml`; the Postman collection in `postman/` tests it.

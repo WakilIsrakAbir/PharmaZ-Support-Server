@@ -4,11 +4,11 @@ export function passwordResetEmail({ name, token }) {
   const link = `${env.appUrl}/reset-password?token=${token}`;
 
   return {
-    subject: "Reset your PharmaZ247 Support password",
+    subject: `Reset your ${env.brandName} password`,
     text: [
       `Hi ${name},`,
       "",
-      "Someone asked to reset the password for your PharmaZ247 Support account.",
+      `Someone asked to reset the password for your ${env.brandName} account.`,
       "Open this link to choose a new one. It works once and expires in 30 minutes:",
       "",
       link,
@@ -19,7 +19,7 @@ export function passwordResetEmail({ name, token }) {
       <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;color:#0f1d17">
         <h2 style="margin:0 0 16px">Reset your password</h2>
         <p>Hi ${escapeHtml(name)},</p>
-        <p>Someone asked to reset the password for your PharmaZ247 Support account. The link works once and expires in 30 minutes.</p>
+        <p>Someone asked to reset the password for your ${escapeHtml(env.brandName)} account. The link works once and expires in 30 minutes.</p>
         <p style="margin:28px 0">
           <a href="${link}" style="background:#059669;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold">Choose a new password</a>
         </p>

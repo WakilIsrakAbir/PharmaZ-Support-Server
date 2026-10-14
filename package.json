@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Express API for the Demo Support Tool",
+  "description": "Express API for the Tulip Tech Support Tool",
   "main": "src/index.js",
   "engines": {
     "node": ">=22.9"

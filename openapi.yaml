@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Demo Support Tool API
+  title: Tulip Tech Support Tool API
   version: 1.0.0
   description: |
     Backend for the support tool. Agents log customer calls here, and the Logs and

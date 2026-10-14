@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
 
 // What a brand-new product starts with. The product admin can change all of it.
-export const DEFAULT_STATUSES = [
+const DEFAULT_STATUSES = [
   { key: "completed", label: "Completed", color: "emerald" },
   { key: "pending", label: "Pending", color: "amber", isDefault: true },
   { key: "resolved", label: "Resolved", color: "sky" },
   { key: "under-review", label: "Under Review", color: "violet" },
 ];
 
-export const DEFAULT_PRIORITIES = [
+const DEFAULT_PRIORITIES = [
   { key: "low", label: "Low", color: "slate" },
   { key: "normal", label: "Normal", color: "sky", isDefault: true },
   { key: "high", label: "High", color: "amber" },

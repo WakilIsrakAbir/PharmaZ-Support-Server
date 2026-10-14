@@ -12,7 +12,7 @@ export function toKey(label) {
 }
 
 /** A key from `label` that isn't in `takenKeys` yet ("pending", "pending-2", ...). */
-export function uniqueKey(label, takenKeys) {
+function uniqueKey(label, takenKeys) {
   const base = toKey(label);
   let key = base;
   for (let n = 2; takenKeys.has(key); n++) key = `${base}-${n}`;
