@@ -1,5 +1,5 @@
-import { ProblemArea } from "../products/problem-area.model.js";
 import { OTHER_ISSUE } from "../products/product.constants.js";
+import { productModels } from "../../config/product-db.js";
 import { HttpError } from "../../utils/http-error.js";
 
 // A call's area, issue, status, priority and extra fields must come from its product's
@@ -45,6 +45,7 @@ async function checkArea(product, { area: areaId, issue }, errors) {
     return {};
   }
 
+  const { ProblemArea } = productModels(product);
   const area = await ProblemArea.findOne({ _id: areaId, product: product._id, isActive: true });
   if (!area) {
     errors.area = "That problem area isn't available.";

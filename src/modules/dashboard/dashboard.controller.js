@@ -1,8 +1,10 @@
-import { Call } from "../calls/call.model.js";
+import { User } from "../auth/user.model.js";
+import { WITH_AGENT } from "../calls/call.model.js";
+import { productModels } from "../../config/product-db.js";
 import { localDateKey, startOfLocalDay, startOfLocalMonth, toMongoTimezone } from "../../utils/local-dates.js";
 
 // The product's dashboard. Runs behind requireAuth + resolveProduct, so it only ever
-// counts `req.product`'s calls.
+// counts `req.product`'s calls (kept in the product's own database).
 
 const TOP_AREAS = 8;
 const TOP_AGENTS = 5;
@@ -14,6 +16,8 @@ export async function getDashboard(req, res) {
   const inProduct = { product };
   const periodStart = startOfLocalDay(tz, days - 1);
   const inPeriod = { product, calledAt: { $gte: periodStart } };
+  const { Call } = productModels(req.product);
+  const countBy = (match, field, limit) => countCallsBy(Call, match, field, limit);
 
   const [today, last7Days, thisMonth, allTime, daily, byStatus, byArea, byAgent, byDirection, recent] =
     await Promise.all([
@@ -26,16 +30,9 @@ export async function getDashboard(req, res) {
       }),
       countBy(inPeriod, "$status"),
       countBy(inPeriod, "$areaName", TOP_AREAS),
-      Call.aggregate([
-        { $match: inPeriod },
-        { $group: { _id: "$createdBy", count: { $sum: 1 } } },
-        { $sort: { count: -1, _id: 1 } },
-        { $limit: TOP_AGENTS },
-        { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "agent" } },
-        { $project: { _id: 0, id: { $toString: "$_id" }, name: { $first: "$agent.name" }, count: 1 } },
-      ]),
+      busiestAgents(Call, inPeriod),
       countBy(inPeriod, "$direction"),
-      Call.find(inProduct).sort({ calledAt: -1, _id: -1 }).limit(RECENT_CALLS).populate({ path: "createdBy", select: "name" }),
+      Call.find(inProduct).sort({ calledAt: -1, _id: -1 }).limit(RECENT_CALLS).populate(WITH_AGENT),
     ]);
 
   // One entry per day, including the quiet ones, oldest first
@@ -59,8 +56,19 @@ export async function getDashboard(req, res) {
   });
 }
 
+/**
+ * The agents who logged the most calls: [{ id, name, count }]. Accounts live in the main
+ * database, so their names are looked up separately (no join across databases).
+ */
+async function busiestAgents(Call, match) {
+  const top = await countCallsBy(Call, match, "$createdBy", TOP_AGENTS);
+  const users = await User.find({ _id: { $in: top.map(({ key }) => key) } }, { name: 1 });
+  const nameOf = new Map(users.map((user) => [user.id, user.name]));
+  return top.map(({ key, count }) => ({ id: String(key), name: nameOf.get(String(key)), count }));
+}
+
 /** [{ key, count }] grouped by `field`, biggest first. Calls with no value come back as key null. */
-function countBy(match, field, limit) {
+function countCallsBy(Call, match, field, limit) {
   return Call.aggregate([
     { $match: match },
     { $group: { _id: field, count: { $sum: 1 } } },

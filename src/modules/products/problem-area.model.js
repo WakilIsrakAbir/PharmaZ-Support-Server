@@ -8,7 +8,9 @@ const issueSchema = new mongoose.Schema({
 });
 
 /** One card on the Log a Call form ("Inventory & Stock"), with the issues listed under it. */
-const problemAreaSchema = new mongoose.Schema(
+// Problem areas live in their product's own database: get the model with
+// productModels(product) from config/product-db.js
+export const problemAreaSchema = new mongoose.Schema(
   {
     product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true, index: true },
     name: { type: String, required: true, trim: true },
@@ -31,5 +33,3 @@ const problemAreaSchema = new mongoose.Schema(
     },
   },
 );
-
-export const ProblemArea = mongoose.model("ProblemArea", problemAreaSchema);

@@ -32,6 +32,28 @@ npm run migrate:closed-statuses -- --dry-run   # see what would change
 npm run migrate:closed-statuses
 ```
 
+Then move each product's data into its own database (see "Where the data lives"):
+
+```bash
+npm run migrate:split-products -- --dry-run    # see what would be copied
+npm run migrate:split-products                 # copy; the shared collections stay as they are
+npm run migrate:split-products -- --drop-old   # after checking the app: back up to backups/, then remove them
+```
+
+## Where the data lives
+
+Each product has its own database, so it shows up as its own folder in Atlas or Compass:
+
+```
+<main database from MONGODB_URI>   users, products (shared: one login per person, and the
+                                   super admin works across every product)
+tulip_<product slug>               that product's calls and problemareas
+```
+
+A product's database is made on its first write and dropped when the product is deleted.
+Code reaches it through `productModels(product)` in `src/config/product-db.js`; nothing
+joins across databases, so names of people are looked up with the `User` model.
+
 ## Modules
 
 ```
@@ -46,7 +68,8 @@ src/modules/
 ```
 
 Every request under `/dashboard`, `/performance`, `/product`, `/calls` and `/users` works inside one
-product (`resolveProduct`), so products never see each other's data.
+product (`resolveProduct`), reading and writing that product's own database, so products
+never see each other's data.
 
 ## Tests
 

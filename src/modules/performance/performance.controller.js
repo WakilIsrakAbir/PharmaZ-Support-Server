@@ -1,5 +1,5 @@
 import { User } from "../auth/user.model.js";
-import { Call } from "../calls/call.model.js";
+import { productModels } from "../../config/product-db.js";
 import { dateKeysBetween, startOfDateKey } from "../../utils/local-dates.js";
 import { performancePipeline } from "./performance.pipeline.js";
 
@@ -15,6 +15,7 @@ export async function getPerformance(req, res) {
   const product = req.product._id;
   const days = dateKeysBetween(from, to);
   const closedStatuses = req.product.statuses.filter((status) => status.isClosed);
+  const { Call } = productModels(req.product);
 
   const [[stats], members] = await Promise.all([
     Call.aggregate(

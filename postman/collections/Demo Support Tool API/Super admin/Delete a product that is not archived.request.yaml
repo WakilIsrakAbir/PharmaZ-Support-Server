@@ -1,0 +1,14 @@
+$kind: http-request
+method: DELETE
+url: '{{base_url}}/admin/products/{{pharmaz_id}}'
+order: 9000
+description: PharmaZ247 is live, so it can't be deleted until it is archived. Nothing is deleted.
+headers:
+  - key: X-Send-As
+    value: 'admin'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 409", () => pm.response.to.have.status(409));
+      pm.test("says to archive first", () => pm.expect(pm.response.json().error.message).to.eql("Archive the product before deleting it."));

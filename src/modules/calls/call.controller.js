@@ -1,17 +1,17 @@
 import mongoose from "mongoose";
-import { Call } from "./call.model.js";
+import { WITH_AGENT } from "./call.model.js";
 import { applyProductSetup } from "./call.setup.js";
 import { normalizeMobile } from "./call.validator.js";
+import { productModels } from "../../config/product-db.js";
 import { escapeRegExp } from "../../utils/escape-regexp.js";
 import { HttpError } from "../../utils/http-error.js";
 
 // Express 5 passes errors from async handlers to the error handler automatically.
-// Every route runs behind resolveProduct: calls are always read and written inside `req.product`.
-
-// Every call is sent with the name of the agent who logged it
-const WITH_AGENT = { path: "createdBy", select: "name" };
+// Every route runs behind resolveProduct: calls are always read and written inside `req.product`,
+// in that product's own database (see config/product-db.js).
 
 export async function createCall(req, res) {
+  const { Call } = productModels(req.product);
   const values = await applyProductSetup(req.product, req.validated.body);
   const call = await Call.create({ ...values, product: req.product._id, createdBy: req.user._id });
   await call.populate(WITH_AGENT);
@@ -32,6 +32,7 @@ export async function listCalls(req, res) {
     query.calledAt = { ...(from && { $gte: new Date(from) }), ...(to && { $lt: new Date(to) }) };
   }
 
+  const { Call } = productModels(req.product);
   const [calls, total] = await Promise.all([
     Call.find(query)
       .sort({ calledAt: -1, _id: -1 })
@@ -79,6 +80,7 @@ export async function deleteCall(req, res) {
 // A call from another product is "not found", not "forbidden": its existence isn't shared
 async function findCall(req) {
   const { id } = req.params;
+  const { Call } = productModels(req.product);
   const call = mongoose.isValidObjectId(id) ? await Call.findOne({ _id: id, product: req.product._id }) : null;
 
   if (!call) {

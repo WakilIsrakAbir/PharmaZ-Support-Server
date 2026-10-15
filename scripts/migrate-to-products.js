@@ -13,12 +13,15 @@
 // 4. Puts every call that has no product into PharmaZ247.
 // 5. Gives PharmaZ247 its problem areas and issues, if it has none yet.
 // 6. Points calls that saved their area as text ("inventory") at the matching problem area.
+//
+// It works on the shared "calls" and "problemareas" collections from before each product
+// had its own database. Run `npm run migrate:split-products` afterwards to move them there.
 
 import mongoose from "mongoose";
 import { Product } from "../src/modules/products/product.model.js";
 import { User } from "../src/modules/auth/user.model.js";
-import { Call } from "../src/modules/calls/call.model.js";
-import { ProblemArea } from "../src/modules/products/problem-area.model.js";
+import { callSchema } from "../src/modules/calls/call.model.js";
+import { problemAreaSchema } from "../src/modules/products/problem-area.model.js";
 import { PHARMAZ247_AREAS } from "./data/pharmaz247-setup.js";
 import { createTemporaryPassword, hashPassword } from "../src/modules/auth/password.js";
 
@@ -28,6 +31,10 @@ const args = Object.fromEntries(
     return [name, value];
   }),
 );
+
+// The shared collections in the main database (the app itself now uses each product's own)
+const Call = mongoose.model("SharedCall", callSchema, "calls");
+const ProblemArea = mongoose.model("SharedProblemArea", problemAreaSchema, "problemareas");
 
 const superAdminEmail = args["super-admin"]?.toLowerCase();
 const isDryRun = args["dry-run"] === "true";

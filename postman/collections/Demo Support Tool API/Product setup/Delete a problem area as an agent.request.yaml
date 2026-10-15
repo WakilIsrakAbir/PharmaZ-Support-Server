@@ -1,0 +1,10 @@
+$kind: http-request
+method: DELETE
+url: '{{base_url}}/product/areas/{{area_id}}'
+order: 9000
+description: The test account is an agent; only admins may delete problem areas. Nothing is deleted.
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("returns 403", () => pm.response.to.have.status(403));

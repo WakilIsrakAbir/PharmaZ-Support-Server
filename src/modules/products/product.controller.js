@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { ProblemArea } from "./problem-area.model.js";
 import { mergeOptionList, settleDefault } from "./option-list.js";
+import { productModels } from "../../config/product-db.js";
 import { escapeRegExp } from "../../utils/escape-regexp.js";
 import { HttpError } from "../../utils/http-error.js";
 
@@ -10,6 +10,7 @@ import { HttpError } from "../../utils/http-error.js";
 
 /** Everything the forms need: statuses, priorities, custom fields and problem areas. */
 async function loadSetup(product) {
+  const { ProblemArea } = productModels(product);
   const areas = await ProblemArea.find({ product: product._id }).sort({ order: 1, createdAt: 1 });
   const { id, name, slug, description, accentColor, statuses, priorities, customFields } = product.toJSON();
   return { product: { id, name, slug, description, accentColor }, statuses, priorities, customFields, areas };
@@ -59,6 +60,7 @@ export async function createArea(req, res) {
   const { name, icon, issues } = req.validated.body;
   await assertAreaNameFree(req.product, name);
 
+  const { ProblemArea } = productModels(req.product);
   const last = await ProblemArea.findOne({ product: req.product._id }).sort({ order: -1 });
   await ProblemArea.create({
     product: req.product._id,
@@ -90,9 +92,36 @@ export async function updateArea(req, res) {
   res.json({ data: await loadSetup(req.product) });
 }
 
+/**
+ * Deletes a problem area and its issues for good. Calls logged with it still read the same:
+ * each call saved the area's name and the issue's text when it was logged.
+ */
+export async function deleteArea(req, res) {
+  const area = await findArea(req);
+  await area.deleteOne();
+  res.json({ data: await loadSetup(req.product) });
+}
+
+/** Deletes an extra form field for good, along with the answers calls saved for it. */
+export async function deleteCustomField(req, res) {
+  const { key } = req.params;
+  // Only keys the product really has reach the update below
+  if (!req.product.customFields.some((field) => field.key === key)) {
+    throw new HttpError(404, "Form field not found");
+  }
+
+  req.product.customFields = req.product.customFields.filter((field) => field.key !== key);
+  await req.product.save();
+  const { Call } = productModels(req.product);
+  await Call.updateMany({ product: req.product._id }, { $unset: { [`customFields.${key}`]: "" } });
+
+  res.json({ data: await loadSetup(req.product) });
+}
+
 /** Saves a new order for the cards on the Log a Call form. Needs every area's id. */
 export async function reorderAreas(req, res) {
   const { ids } = req.validated.body;
+  const { ProblemArea } = productModels(req.product);
   const areas = await ProblemArea.find({ product: req.product._id }, { _id: 1 });
   const known = new Set(areas.map((area) => area.id));
 
@@ -109,12 +138,14 @@ export async function reorderAreas(req, res) {
 
 async function findArea(req) {
   const { id } = req.params;
+  const { ProblemArea } = productModels(req.product);
   const area = mongoose.isValidObjectId(id) ? await ProblemArea.findOne({ _id: id, product: req.product._id }) : null;
   if (!area) throw new HttpError(404, "Problem area not found");
   return area;
 }
 
 async function assertAreaNameFree(product, name) {
+  const { ProblemArea } = productModels(product);
   const taken = await ProblemArea.exists({ product: product._id, name: new RegExp(`^${escapeRegExp(name)}$`, "i") });
   if (taken) {
     const message = "There's already a problem area with this name.";

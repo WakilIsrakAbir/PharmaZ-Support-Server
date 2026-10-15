@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
 import { DIRECTIONS } from "./call.constants.js";
+import { User } from "../auth/user.model.js";
 
-const callSchema = new mongoose.Schema(
+// Calls live in their product's own database: get the model with productModels(product)
+// from config/product-db.js
+export const callSchema = new mongoose.Schema(
   {
     // The product this call belongs to. Every query filters by it.
     product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true, index: true },
@@ -51,4 +54,8 @@ const callSchema = new mongoose.Schema(
 // The Logs page lists the newest calls first
 callSchema.index({ product: 1, calledAt: -1 });
 
-export const Call = mongoose.model("Call", callSchema);
+/**
+ * Populate option that adds the name of the agent who logged a call. Accounts live in the
+ * main database, not the product's, so the User model is named outright.
+ */
+export const WITH_AGENT = { path: "createdBy", select: "name", model: User };

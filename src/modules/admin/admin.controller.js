@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import { User } from "../auth/user.model.js";
-import { Call } from "../calls/call.model.js";
 import { toKey } from "../products/option-list.js";
 import { PRODUCT_COOKIE } from "../products/product.middleware.js";
 import { Product } from "../products/product.model.js";
 import { addMember, findJoinableAccount } from "../users/member-accounts.js";
 import { env } from "../../config/env.js";
+import { dropProductDb, productModels } from "../../config/product-db.js";
 import { escapeRegExp } from "../../utils/escape-regexp.js";
 import { HttpError } from "../../utils/http-error.js";
 import { startOfLocalDay } from "../../utils/local-dates.js";
@@ -14,6 +14,7 @@ import { startOfLocalDay } from "../../utils/local-dates.js";
 // Unlike the rest of the API, it looks across all products.
 
 const MAX_ADMINS_SHOWN = 5;
+const MAX_SLUG_LENGTH = 40;
 
 /** Every product as a card: details, its admins, team size and call activity. */
 export async function listProducts(req, res) {
@@ -108,6 +109,24 @@ export async function removeAdmin(req, res) {
   res.json({ data: (await toCards([product], req.validated.query.tz))[0] });
 }
 
+/**
+ * Deletes an archived product for good: its own database (calls and problem areas) is
+ * dropped. Its people keep their accounts, left without a product, so they can be added
+ * to another one.
+ */
+export async function deleteProduct(req, res) {
+  const product = await findProduct(req.params.id);
+  if (!product.isArchived) {
+    throw new HttpError(409, "Archive the product before deleting it.");
+  }
+
+  await dropProductDb(product);
+  await User.updateMany({ product: product._id }, { $set: { product: null } });
+  await product.deleteOne();
+
+  res.status(204).end();
+}
+
 /** Every account on the platform, with the product each one is in. */
 export async function listAllUsers(req, res) {
   const { page, limit, search, product, role } = req.validated.query;
@@ -156,9 +175,12 @@ async function findProduct(id) {
   return product;
 }
 
-/** "PharmaZ 247" -> "pharmaz-247", or "pharmaz-247-2" if that's taken. */
+/**
+ * "PharmaZ 247" -> "pharmaz-247", or "pharmaz-247-2" if that's taken. Kept short: the slug
+ * also names the product's database ("tulip_<slug>"), and Atlas allows 64 characters.
+ */
 async function freeSlug(name) {
-  const base = toKey(name);
+  const base = toKey(name).slice(0, MAX_SLUG_LENGTH).replace(/-+$/, "") || "product";
   let slug = base;
   for (let n = 2; await Product.exists({ slug }); n++) slug = `${base}-${n}`;
   return slug;
@@ -184,7 +206,10 @@ const summary = (product) => ({
   isArchived: product.isArchived,
 });
 
-/** Products plus their admins, team size and call numbers, in a few grouped queries. */
+/**
+ * Products plus their admins, team size and call numbers. Team numbers come from one
+ * grouped query; each product's calls are counted in its own database, all at once.
+ */
 async function toCards(products, tz) {
   const ids = products.map((product) => product._id);
   const startOfToday = startOfLocalDay(tz);
@@ -209,21 +234,11 @@ async function toCards(products, tz) {
         },
       },
     ]),
-    Call.aggregate([
-      { $match: { product: { $in: ids } } },
-      {
-        $group: {
-          _id: "$product",
-          callsTotal: { $sum: 1 },
-          callsToday: { $sum: { $cond: [{ $gte: ["$calledAt", startOfToday] }, 1, 0] } },
-          lastCallAt: { $max: "$calledAt" },
-        },
-      },
-    ]),
+    Promise.all(products.map((product) => callActivity(product, startOfToday))),
   ]);
 
   const membersOf = new Map(members.map((group) => [group._id.toString(), group]));
-  const callsOf = new Map(calls.map((group) => [group._id.toString(), group]));
+  const callsOf = new Map(products.map((product, index) => [product.id, calls[index]]));
 
   return products.map((product) => {
     const team = membersOf.get(product.id);
@@ -240,4 +255,21 @@ async function toCards(products, tz) {
       lastCallAt: activity?.lastCallAt ?? null,
     };
   });
+}
+
+/** A product's call numbers for its card: { callsTotal, callsToday, lastCallAt }, or undefined with no calls. */
+async function callActivity(product, startOfToday) {
+  const { Call } = productModels(product);
+  const [activity] = await Call.aggregate([
+    { $match: { product: product._id } },
+    {
+      $group: {
+        _id: null,
+        callsTotal: { $sum: 1 },
+        callsToday: { $sum: { $cond: [{ $gte: ["$calledAt", startOfToday] }, 1, 0] } },
+        lastCallAt: { $max: "$calledAt" },
+      },
+    },
+  ]);
+  return activity;
 }
