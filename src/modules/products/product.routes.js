@@ -2,10 +2,8 @@ import { Router } from "express";
 import {
   createArea,
   deleteArea,
-  deleteCustomField,
   getSetup,
   reorderAreas,
-  replaceCustomFields,
   replacePriorities,
   replaceStatuses,
   updateArea,
@@ -15,7 +13,6 @@ import { requireProductAdmin } from "./product.middleware.js";
 import { validate } from "../../middlewares/validate.js";
 import {
   createAreaSchema,
-  customFieldsSchema,
   prioritiesSchema,
   reorderAreasSchema,
   statusesSchema,
@@ -34,8 +31,6 @@ router.use(requireProductAdmin);
 router.patch("/", validate({ body: updateProductSchema }), updateProduct);
 router.put("/statuses", validate({ body: statusesSchema }), replaceStatuses);
 router.put("/priorities", validate({ body: prioritiesSchema }), replacePriorities);
-router.put("/custom-fields", validate({ body: customFieldsSchema }), replaceCustomFields);
-router.delete("/custom-fields/:key", deleteCustomField);
 router.post("/areas", validate({ body: createAreaSchema }), createArea);
 router.put("/areas/order", validate({ body: reorderAreasSchema }), reorderAreas);
 router.patch("/areas/:id", validate({ body: updateAreaSchema }), updateArea);

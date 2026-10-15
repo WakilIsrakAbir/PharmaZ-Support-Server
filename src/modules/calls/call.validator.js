@@ -24,13 +24,6 @@ const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Unknown problem area.");
 // Status and priority are keys from the product's own lists; call.setup.js checks them
 const optionKey = optionalText(60);
 
-// Answers to the product's extra fields, checked against the setup in call.setup.js.
-// null or "" clears an answer.
-const customFields = z.record(
-  z.string().max(60),
-  z.union([z.string().max(1000), z.number(), z.null()], { error: "Enter text, a number or a date." }),
-);
-
 export const createCallSchema = z.strictObject({
   mobile: z
     .string({ error: "Enter the customer's mobile number." })
@@ -49,17 +42,15 @@ export const createCallSchema = z.strictObject({
   calledAt: isoDate.optional(),
   outcome: optionalText(2000),
   comments: optionalText(5000),
-  customFields: customFields.default({}),
 });
 
-// What can change after a call is logged: how it ended up, the notes and the extra fields.
+// What can change after a call is logged: how it ended up and the notes.
 // An empty string clears a note.
 export const updateCallSchema = z.strictObject({
   status: optionKey,
   priority: optionKey,
   outcome: z.string().trim().max(2000).optional(),
   comments: z.string().trim().max(5000).optional(),
-  customFields: customFields.optional(),
 });
 
 export const listCallsSchema = z.object({

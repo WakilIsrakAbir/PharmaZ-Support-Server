@@ -10,7 +10,7 @@ scripts:
 
       const setup = pm.response.json().data;
       pm.test("has the product and its lists", () => {
-        pm.expect(setup).to.have.all.keys("product", "statuses", "priorities", "customFields", "areas");
+        pm.expect(setup).to.have.all.keys("product", "statuses", "priorities", "areas");
         pm.expect(setup.product).to.include.keys("id", "name", "slug", "accentColor");
       });
       pm.test("statuses and priorities each have exactly one active default", () => {

@@ -53,7 +53,5 @@ export const OPTION_COLORS = ["slate", "emerald", "teal", "sky", "indigo", "viol
 /** The app's accent colours (client/src/config/theme.js). */
 export const ACCENT_COLORS = ["emerald", "teal", "indigo", "sky", "rose", "purple", "amber"];
 
-export const CUSTOM_FIELD_TYPES = ["text", "number", "select", "date"];
-
 /** The issue an agent picks when none of the listed ones fit. Always allowed. */
 export const OTHER_ISSUE = "Something else";

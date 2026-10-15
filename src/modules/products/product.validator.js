@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACCENT_COLORS, AREA_ICONS, CUSTOM_FIELD_TYPES, OPTION_COLORS } from "./product.constants.js";
+import { ACCENT_COLORS, AREA_ICONS, OPTION_COLORS } from "./product.constants.js";
 
 const label = (what, max = 40) =>
   z
@@ -36,30 +36,6 @@ export const statusesSchema = z.strictObject({
 
 export const prioritiesSchema = z.strictObject({
   priorities: z.array(optionSchema("priority")).min(1, "Add at least one priority.").max(20, "Keep it to 20 priorities."),
-});
-
-export const customFieldsSchema = z.strictObject({
-  customFields: z
-    .array(
-      z
-        .strictObject({
-          key,
-          label: label("field", 60),
-          type: z.enum(CUSTOM_FIELD_TYPES),
-          options: z.array(z.string().trim().min(1).max(60)).max(50, "Keep it to 50 options.").default([]),
-          required: z.boolean().default(false),
-          isActive: z.boolean().default(true),
-        })
-        .refine((field) => field.type !== "select" || field.options.length > 0, {
-          error: "A dropdown needs at least one option.",
-          path: ["options"],
-        })
-        .refine((field) => new Set(field.options.map((o) => o.toLowerCase())).size === field.options.length, {
-          error: "Each option can only be listed once.",
-          path: ["options"],
-        }),
-    )
-    .max(30, "Keep it to 30 fields."),
 });
 
 const issuesSchema = z

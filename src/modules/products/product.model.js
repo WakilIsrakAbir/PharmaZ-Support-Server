@@ -34,18 +34,6 @@ const optionSchema = new mongoose.Schema(
 const statusSchema = optionSchema.clone();
 statusSchema.add({ isClosed: { type: Boolean, default: false } });
 
-const customFieldSchema = new mongoose.Schema(
-  {
-    key: { type: String, required: true },
-    label: { type: String, required: true, trim: true },
-    type: { type: String, enum: ["text", "number", "select", "date"], default: "text" },
-    options: { type: [String], default: [] },
-    required: { type: Boolean, default: false },
-    isActive: { type: Boolean, default: true },
-  },
-  { _id: false },
-);
-
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -58,7 +46,6 @@ const productSchema = new mongoose.Schema(
 
     statuses: { type: [statusSchema], default: () => DEFAULT_STATUSES },
     priorities: { type: [optionSchema], default: () => DEFAULT_PRIORITIES },
-    customFields: { type: [customFieldSchema], default: [] },
   },
   {
     timestamps: true,

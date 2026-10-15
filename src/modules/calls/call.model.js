@@ -29,15 +29,11 @@ export const callSchema = new mongoose.Schema(
     outcome: { type: String, trim: true },
     comments: { type: String, trim: true },
 
-    // Answers to the product's extra form fields, by field key
-    customFields: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
-
     // The agent who logged the call
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   },
   {
     timestamps: true,
-    minimize: false,
     toJSON: {
       versionKey: false,
       // Send `id` instead of Mongo's `_id`

@@ -63,7 +63,6 @@ export async function updateCall(req, res) {
   }
 
   call.set(await applyProductSetup(req.product, req.validated.body, call));
-  call.markModified("customFields");
   await call.save();
   await call.populate(WITH_AGENT);
 

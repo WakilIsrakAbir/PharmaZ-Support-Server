@@ -21,7 +21,7 @@ function uniqueKey(label, takenKeys) {
 }
 
 /**
- * Applies an edited list (statuses, priorities or custom fields) on top of the saved one.
+ * Applies an edited list (statuses or priorities) on top of the saved one.
  *
  * - Items that come with a `key` update the saved item with that key.
  * - Items without a key are new; their key is made from the label and never changes.

@@ -36,6 +36,17 @@ export async function listProducts(req, res) {
 }
 
 /**
+ * Just enough to pick a product in the product picker: the active ones, oldest first.
+ * One light query, unlike the full cards above.
+ */
+export async function listProductOptions(_req, res) {
+  const products = await Product.find({ isArchived: false }, { name: 1, slug: 1, accentColor: 1, isArchived: 1 }).sort({
+    createdAt: 1,
+  });
+  res.json({ data: products.map(summary) });
+}
+
+/**
  * Creates a product together with its first admin. The admin's email is checked first,
  * so a refused email never leaves a product without an admin behind.
  */

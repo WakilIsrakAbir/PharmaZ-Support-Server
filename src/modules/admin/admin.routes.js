@@ -4,6 +4,7 @@ import {
   createProduct,
   deleteProduct,
   listAllUsers,
+  listProductOptions,
   listProducts,
   openProduct,
   removeAdmin,
@@ -23,6 +24,8 @@ import { validate } from "../../middlewares/validate.js";
 const router = Router();
 
 router.get("/products", validate({ query: productsQuerySchema }), listProducts);
+// Names and colours only, for switching between products
+router.get("/products/options", listProductOptions);
 router.post("/products", validate({ body: createProductSchema, query: productsQuerySchema }), createProduct);
 // Each answers with the product's card; `tz` counts its "calls today" in the viewer's timezone
 router.patch("/products/:id", validate({ body: updateProductSchema, query: productsQuerySchema }), updateProduct);

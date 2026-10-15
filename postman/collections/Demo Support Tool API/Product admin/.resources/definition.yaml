@@ -1,7 +1,7 @@
 $kind: collection
 name: Product admin
 description: |-
-  The product admin sets up problem areas, statuses, priorities and extra form fields.
+  The product admin sets up problem areas, statuses and priorities.
   Every request here is sent as the admin (admin_email / admin_password).
 order: 2500
 scripts:

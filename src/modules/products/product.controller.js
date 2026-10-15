@@ -8,12 +8,12 @@ import { HttpError } from "../../utils/http-error.js";
 // requireProductAdmin. Each write answers with the whole setup, so the client can
 // swap in the new version in one go.
 
-/** Everything the forms need: statuses, priorities, custom fields and problem areas. */
+/** Everything the forms need: statuses, priorities and problem areas. */
 async function loadSetup(product) {
   const { ProblemArea } = productModels(product);
   const areas = await ProblemArea.find({ product: product._id }).sort({ order: 1, createdAt: 1 });
-  const { id, name, slug, description, accentColor, statuses, priorities, customFields } = product.toJSON();
-  return { product: { id, name, slug, description, accentColor }, statuses, priorities, customFields, areas };
+  const { id, name, slug, description, accentColor, statuses, priorities } = product.toJSON();
+  return { product: { id, name, slug, description, accentColor }, statuses, priorities, areas };
 }
 
 export async function getSetup(req, res) {
@@ -36,22 +36,6 @@ export async function replaceStatuses(req, res) {
 export async function replacePriorities(req, res) {
   const merged = mergeOptionList(req.product.priorities, req.validated.body.priorities, "priorities");
   req.product.priorities = settleDefault(merged, "priorities");
-  await req.product.save();
-  res.json({ data: await loadSetup(req.product) });
-}
-
-export async function replaceCustomFields(req, res) {
-  const savedTypes = new Map(req.product.customFields.map((field) => [field.key, field.type]));
-
-  // Changing a field's type would make the answers already saved on calls meaningless
-  for (const field of req.validated.body.customFields) {
-    if (field.key && savedTypes.has(field.key) && savedTypes.get(field.key) !== field.type) {
-      const message = `"${field.label}" already has answers, so its type can't change. Add a new field instead.`;
-      throw new HttpError(400, message, { customFields: message });
-    }
-  }
-
-  req.product.customFields = mergeOptionList(req.product.customFields, req.validated.body.customFields, "customFields");
   await req.product.save();
   res.json({ data: await loadSetup(req.product) });
 }
@@ -99,22 +83,6 @@ export async function updateArea(req, res) {
 export async function deleteArea(req, res) {
   const area = await findArea(req);
   await area.deleteOne();
-  res.json({ data: await loadSetup(req.product) });
-}
-
-/** Deletes an extra form field for good, along with the answers calls saved for it. */
-export async function deleteCustomField(req, res) {
-  const { key } = req.params;
-  // Only keys the product really has reach the update below
-  if (!req.product.customFields.some((field) => field.key === key)) {
-    throw new HttpError(404, "Form field not found");
-  }
-
-  req.product.customFields = req.product.customFields.filter((field) => field.key !== key);
-  await req.product.save();
-  const { Call } = productModels(req.product);
-  await Call.updateMany({ product: req.product._id }, { $unset: { [`customFields.${key}`]: "" } });
-
   res.json({ data: await loadSetup(req.product) });
 }
 

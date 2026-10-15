@@ -34,7 +34,7 @@ tags:
   - name: Account
   - name: Product setup
     description: |
-      The product's own problem areas, statuses, priorities and extra form fields.
+      The product's own problem areas, statuses and priorities.
       Every member can read them; only the product's admins can change them.
       Nothing is ever deleted: an option left out of a list is switched off
       (`isActive: false`), so older calls still show it.
@@ -353,55 +353,6 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/NotProductAdmin" }
 
-  /product/custom-fields:
-    put:
-      tags: [Product setup]
-      summary: Replace the extra form fields
-      description: |
-        Extra questions on the Log a Call form. Keys work like statuses: send a field's
-        `key` to update it, leave it out to add a new one; fields left out are switched
-        off. A field's type can't change once it exists (400); add a new field instead.
-      operationId: replaceCustomFields
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [customFields]
-              additionalProperties: false
-              properties:
-                customFields:
-                  type: array
-                  maxItems: 30
-                  items: { $ref: "#/components/schemas/CustomFieldInput" }
-            example:
-              customFields:
-                - { label: Branch, type: select, options: [Dhaka, Chittagong], required: true }
-                - { label: Invoice amount, type: number }
-      responses:
-        "200": { $ref: "#/components/responses/SetupResponse" }
-        "400": { $ref: "#/components/responses/ValidationError" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/NotProductAdmin" }
-
-  /product/custom-fields/{key}:
-    delete:
-      tags: [Product setup]
-      summary: Delete an extra form field
-      description: Removes the field for good, and the answers calls saved for it. To hide it but keep the answers, switch it off instead.
-      operationId: deleteCustomField
-      parameters:
-        - name: key
-          in: path
-          required: true
-          schema: { type: string, example: branch }
-      responses:
-        "200": { $ref: "#/components/responses/SetupResponse" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/NotProductAdmin" }
-        "404": { $ref: "#/components/responses/NotFound" }
-
   /product/areas:
     post:
       tags: [Product setup]
@@ -516,9 +467,8 @@ paths:
       tags: [Calls]
       summary: Log a call
       description: |
-        Only `mobile` is required, plus any extra field the product marks as required.
-        The area, issue, status, priority and extra fields must come from the product
-        setup and be switched on. The issue must be listed under the area, or be
+        Only `mobile` is required. The area, issue, status and priority must come from
+        the product setup and be switched on. The issue must be listed under the area, or be
         "Something else". A missing status or priority gets the product's default.
       operationId: createCall
       requestBody:
@@ -536,7 +486,6 @@ paths:
               status: pending
               durationSeconds: 225
               outcome: Re-synced stock, waiting for customer to confirm
-              customFields: { branch: Dhaka }
       responses:
         "201":
           description: The call was logged.
@@ -638,10 +587,9 @@ paths:
       tags: [Calls]
       summary: Update a call
       description: |
-        Changes how a call ended up, its notes and its extra fields. Only the agent who
-        logged the call, or an admin, can do this. An empty string clears a note; a null
-        or empty answer clears an extra field. A call can keep a status or priority that
-        has since been switched off, but can't be moved onto one.
+        Changes how a call ended up and its notes. Only the agent who logged the call,
+        or an admin, can do this. An empty string clears a note. A call can keep a status
+        or priority that has since been switched off, but can't be moved onto one.
       operationId: updateCall
       parameters:
         - name: id
@@ -660,7 +608,6 @@ paths:
                 priority: { type: string, description: A priority key from the product setup. }
                 outcome: { type: string, maxLength: 2000 }
                 comments: { type: string, maxLength: 5000 }
-                customFields: { $ref: "#/components/schemas/CustomFieldAnswers" }
             example: { status: under-review, outcome: Sent to the tech team }
       responses:
         "200":
@@ -977,6 +924,35 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /admin/products/options:
+    get:
+      tags: [Super admin]
+      summary: Products to switch between
+      description: The active products with just their name and colour, oldest first. Used by the product picker.
+      operationId: listProductOptions
+      responses:
+        "200":
+          description: The active products.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, slug, accentColor, isArchived]
+                      properties:
+                        id: { type: string }
+                        name: { type: string, example: PharmaZ247 }
+                        slug: { type: string, example: pharmaz247 }
+                        accentColor: { $ref: "#/components/schemas/AccentColor" }
+                        isArchived: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/NotSuperAdmin" }
+
   /admin/products/{id}:
     patch:
       tags: [Super admin]
@@ -1256,35 +1232,6 @@ components:
         isActive: { type: boolean, default: true }
         isClosed: { type: boolean, default: false, description: Calls with this status are done with. }
 
-    CustomField:
-      type: object
-      required: [key, label, type, options, required, isActive]
-      properties:
-        key: { type: string, description: The name its answer is saved under on calls., example: branch }
-        label: { type: string, example: Branch }
-        type: { type: string, enum: [text, number, select, date] }
-        options: { type: array, items: { type: string }, description: The choices of a select. }
-        required: { type: boolean }
-        isActive: { type: boolean }
-    CustomFieldInput:
-      type: object
-      required: [label, type]
-      additionalProperties: false
-      properties:
-        key: { type: string, description: Leave out for a new field. }
-        label: { type: string, minLength: 1, maxLength: 60 }
-        type: { type: string, enum: [text, number, select, date] }
-        options: { type: array, maxItems: 50, items: { type: string }, description: Required (and unique) for a select. }
-        required: { type: boolean, default: false }
-        isActive: { type: boolean, default: true }
-    CustomFieldAnswers:
-      type: object
-      description: |
-        Answers by field key. Text up to 500 characters; numbers (a numeric string is
-        accepted); one of a select's options; dates as YYYY-MM-DD.
-      additionalProperties: { type: [string, number, "null"] }
-      example: { branch: Dhaka, invoice-amount: 1250.5, visit-date: "2026-10-01" }
-
     Issue:
       type: object
       required: [id, label, isActive]
@@ -1313,7 +1260,7 @@ components:
 
     ProductSetup:
       type: object
-      required: [product, statuses, priorities, customFields, areas]
+      required: [product, statuses, priorities, areas]
       properties:
         product:
           type: object
@@ -1326,7 +1273,6 @@ components:
             accentColor: { $ref: "#/components/schemas/AccentColor" }
         statuses: { type: array, items: { $ref: "#/components/schemas/Status" } }
         priorities: { type: array, items: { $ref: "#/components/schemas/Option" } }
-        customFields: { type: array, items: { $ref: "#/components/schemas/CustomField" } }
         areas: { type: array, items: { $ref: "#/components/schemas/ProblemArea" } }
 
     CallInput:
@@ -1352,11 +1298,10 @@ components:
           description: When the call happened. Defaults to the time it was logged.
         outcome: { type: string, maxLength: 2000 }
         comments: { type: string, maxLength: 5000 }
-        customFields: { $ref: "#/components/schemas/CustomFieldAnswers" }
 
     Call:
       type: object
-      required: [id, mobile, direction, calledAt, customFields, createdAt, updatedAt]
+      required: [id, mobile, direction, calledAt, createdAt, updatedAt]
       properties:
         id: { type: string, example: 6708f1c2a9b3e4d5f6a7b8c9 }
         mobile: { type: string, description: Always stored as 01XXXXXXXXX., example: "01712345678" }
@@ -1372,7 +1317,6 @@ components:
         calledAt: { type: string, format: date-time }
         outcome: { type: string }
         comments: { type: string }
-        customFields: { $ref: "#/components/schemas/CustomFieldAnswers" }
         createdBy:
           type: object
           description: The agent who logged the call.

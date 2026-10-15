@@ -44,7 +44,6 @@ scripts:
         pm.expect(call.calledAt).to.be.a("string");
       });
       pm.test("saves the area's name with it", () => pm.expect(call.areaName).to.eql(pm.collectionVariables.get("area_name")));
-      pm.test("has no extra field answers", () => pm.expect(call.customFields).to.eql({}));
       pm.test("doesn't repeat the product", () => pm.expect(call).to.not.have.property("product"));
       pm.test("empty strings are not stored", () => pm.expect(call).to.not.have.property("transactionNo"));
       pm.test("keeps the values that were sent", () => {
